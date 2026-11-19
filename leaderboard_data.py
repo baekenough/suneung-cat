@@ -1,5 +1,6 @@
 """Build and load public scores without exam text or request records."""
 import argparse
+from functools import lru_cache
 import json
 import os
 from pathlib import Path
@@ -7,19 +8,30 @@ from shutil import copyfile
 import subprocess
 import sys
 from tempfile import TemporaryDirectory
+from threading import Lock
 import time
-from urllib.parse import urlsplit
+from urllib.error import HTTPError, URLError
+from urllib.parse import parse_qsl, urlencode, urlsplit
 from urllib.request import Request, urlopen
 
 from benchmark import ELECTIVES, FORMS, ROOT, comparison_config, read_json, run_directories, summarize, write_json
 
 DATASETS = {'korean': '2027', 'math': '2027-math'}
+REFRESH_SECONDS = 2
 
 
 def local_leaderboard(subject):
     output = ROOT / 'output' / DATASETS[subject]
-    if not (output / 'questions.json').exists() or not (output / 'answer_key.json').exists():
+    try:
+        inputs = tuple((output / name).stat().st_mtime_ns for name in ('questions.json', 'answer_key.json'))
+        runs = tuple(sorted((path, path.stat().st_mtime_ns) for path in (output / 'runs').glob('*/*.json')))
+    except FileNotFoundError:
         return None
+    return score_local_files(output, (inputs, runs))
+
+
+@lru_cache(maxsize=4)
+def score_local_files(output, version):
     data = read_json(output / 'questions.json')
     key = read_json(output / 'answer_key.json')
     config = comparison_config(data, key, 'medium')
@@ -36,18 +48,45 @@ def local_leaderboard(subject):
             'updated_at': max((p.stat().st_mtime for d in directories for p in d.glob('*.json')), default=0)}
 
 
-def hosted_leaderboard():
-    url = os.environ.get('CSAT_LEADERBOARD_URL')
-    if url:
+def packaged_leaderboard():
+    path = os.environ.get('CSAT_LEADERBOARD_FILE')
+    return read_json(Path(path)) if path and Path(path).is_file() else None
+
+
+class BlobLeaderboard:
+    """Share one revalidation across viewer sessions and keep the last good data."""
+
+    def __init__(self, url, token):
         location = urlsplit(url)
         if location.scheme != 'https' or not (location.hostname or '').endswith('.private.blob.vercel-storage.com'):
             raise ValueError('CSAT_LEADERBOARD_URL은 Vercel 비공개 Blob HTTPS 주소여야 합니다.')
-        token = os.environ['BLOB_READ_WRITE_TOKEN']
-        with urlopen(Request(url, headers={'Authorization': f'Bearer {token}', 'Cache-Control': 'no-cache'}),
-                     timeout=4) as response:
-            return json.load(response)
-    path = os.environ.get('CSAT_LEADERBOARD_FILE')
-    return read_json(Path(path)) if path and Path(path).is_file() else None
+        query = dict(parse_qsl(location.query))
+        query['cache'] = '0'
+        self.url = location._replace(query=urlencode(query)).geturl()
+        self.token = token
+        self.lock = Lock()
+        self.next_check = 0
+        self.etag = None
+        self.data = None
+
+    def read(self):
+        with self.lock:
+            if time.monotonic() < self.next_check:
+                return self.data
+            headers = {'Authorization': f'Bearer {self.token}'}
+            if self.etag:
+                headers['If-None-Match'] = self.etag
+            try:
+                with urlopen(Request(self.url, headers=headers), timeout=4) as response:
+                    self.data = json.load(response)
+                    self.etag = response.headers.get('ETag')
+            except (URLError, ValueError, TimeoutError) as error:
+                if isinstance(error, HTTPError):
+                    error.close()
+                if self.data is None:
+                    raise
+            self.next_check = time.monotonic() + REFRESH_SECONDS
+            return self.data
 
 
 def publisher_environment():
@@ -98,7 +137,7 @@ def main():
                 print('Vercel Blob 업로드 재시도 중', file=sys.stderr, flush=True)
         if not args.watch:
             return
-        time.sleep(2)
+        time.sleep(REFRESH_SECONDS)
 
 
 if __name__ == '__main__':

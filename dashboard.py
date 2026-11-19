@@ -7,7 +7,7 @@ from urllib.error import URLError
 import streamlit as st
 
 from benchmark import format_duration
-from leaderboard_data import hosted_leaderboard, local_leaderboard
+from leaderboard_data import BlobLeaderboard, REFRESH_SECONDS, local_leaderboard, packaged_leaderboard
 
 TITLE = '2027학년도 수능 풀이 모델 리더보드'
 SUBJECTS = {'korean': '국어', 'math': '수학'}
@@ -160,20 +160,25 @@ def provider_group(model):
             'openrouter.ai': 'openrouter', 'api.upstage.ai': 'upstage'}.get(host)
 
 
-@st.cache_data(ttl=2, show_spinner=False)
+@st.cache_resource
 def cloud_scores():
-    return hosted_leaderboard()
+    return BlobLeaderboard(os.environ['CSAT_LEADERBOARD_URL'], os.environ['BLOB_READ_WRITE_TOKEN'])
 
 
-@st.fragment(run_every=2)
-def leaderboard(subject_key, selected_provider):
-    subject = SUBJECTS[subject_key]
+def board_data(subject_key):
     try:
-        snapshot = cloud_scores() if os.environ.get('CSAT_LEADERBOARD_URL') else hosted_leaderboard()
+        snapshot = (cloud_scores().read() if os.environ.get('CSAT_LEADERBOARD_URL')
+                    else packaged_leaderboard())
     except (URLError, ValueError, KeyError, TimeoutError):
+        return False
+    return snapshot.get(subject_key) if snapshot is not None else local_leaderboard(subject_key)
+
+
+def leaderboard(data, subject_key, selected_provider):
+    subject = SUBJECTS[subject_key]
+    if data is False:
         st.warning('리더보드 데이터를 다시 불러오는 중입니다.')
         return
-    data = snapshot.get(subject_key) if snapshot is not None else local_leaderboard(subject_key)
     if not data:
         st.info(f'{subject} 문항을 준비 중입니다.')
         return
@@ -226,4 +231,12 @@ def leaderboard(subject_key, selected_provider):
 <p class="exam-note">2초마다 갱신합니다. 소요시간은 첫 요청부터 마지막 채점 응답까지입니다.</p>''')
 
 
-leaderboard(subject, provider)
+@st.fragment(run_every=REFRESH_SECONDS)
+def watch_board(subject_key, displayed_data):
+    if board_data(subject_key) != displayed_data:
+        st.rerun()
+
+
+data = board_data(subject)
+leaderboard(data, subject, provider)
+watch_board(subject, data)
