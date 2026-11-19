@@ -6,6 +6,7 @@
 !benchmark.py
 !native_models.py
 !result_store.py
+!exam_analysis.py
 !subjects_catalog.py
 !.streamlit/
 !.streamlit/config.toml

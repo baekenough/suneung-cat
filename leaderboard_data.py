@@ -14,7 +14,7 @@ from urllib.error import HTTPError, URLError
 from urllib.parse import parse_qsl, urlencode, urlsplit
 from urllib.request import Request, urlopen
 
-from benchmark import ELECTIVES, FORMS, ROOT, comparison_config, read_json, run_directories, summarize, write_json
+from benchmark import ELECTIVES, FORMS, ROOT, comparison_config, fingerprint, read_json, run_directories, summarize, write_json
 from subjects_catalog import DATASETS, dataset_directory
 
 REFRESH_SECONDS = 2
@@ -27,7 +27,8 @@ def local_leaderboard(subject):
         runs = tuple(sorted((path, path.stat().st_mtime_ns) for path in (output / 'runs').glob('*/*.json')))
     except FileNotFoundError:
         return None
-    return score_local_files(output, (inputs, runs))
+    analysis = output / 'analysis.json'
+    return score_local_files(output, (inputs, runs, analysis.stat().st_mtime_ns if analysis.is_file() else None))
 
 
 @lru_cache(maxsize=2 * len(DATASETS))
@@ -47,9 +48,14 @@ def score_local_files(output, version):
             name: record['points'] if record['solved'] == record['questions'] else None
             for name, record in result['scores'].items() if name in cases})
         models.append(row)
-    return {'questions': len(data['questions']), 'cases': cases, 'models': models,
-            'max_score': data.get('max_score', 100),
-            'updated_at': max((p.stat().st_mtime for d in directories for p in d.glob('*.json')), default=0)}
+    board = {'questions': len(data['questions']), 'cases': cases, 'models': models,
+             'max_score': data.get('max_score', 100),
+             'updated_at': max((p.stat().st_mtime for d in directories for p in d.glob('*.json')), default=0)}
+    if version[2] is not None:
+        analysis = read_json(output / 'analysis.json')
+        if analysis.pop('benchmark_key', None) == fingerprint(config):
+            board['analysis'] = analysis
+    return board
 
 
 def packaged_leaderboard():

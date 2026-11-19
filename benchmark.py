@@ -21,6 +21,7 @@ from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
 from native_models import ANTHROPIC, OPENAI, native_request, normalize_response
+from exam_analysis import analyze, markdown as analysis_markdown
 from result_store import save_results
 from subjects_catalog import DATASETS, dataset_directory
 
@@ -350,8 +351,12 @@ def report(output, directories, data, answers, config):
     summary = summarize(directories, data, answers, config)
     results = summary['models']
     subject = data.get('subject', '국어')
-    save_results(output.parent / 'results.sqlite', subject, fingerprint(config), summary)
+    benchmark_key = fingerprint(config)
+    save_results(output.parent / 'results.sqlite', subject, benchmark_key, summary)
     write_json(output / 'results.json', summary)
+    analysis = analyze(data, results) if 'forms' in data or subject == '영어' else None
+    if analysis:
+        write_json(output / 'analysis.json', {'benchmark_key': benchmark_key, **analysis})
     score_description = ('공식 배점으로 채점한 홀수형·짝수형 100점 원점수의 평균으로 순위를 매깁니다.'
                          if subject == '영어' else
                          '시험지별 50점 만점의 공식 원점수를 평균해 순위를 매깁니다.'
@@ -368,6 +373,8 @@ def report(output, directories, data, answers, config):
         score = f'{r["mean_score"]:.2f}' if r['mean_score'] is not None else '미완료'
         lines.append(f'| {r["rank"] or "–"} | `{r["model"]}` | {full["solved"]}/{full["questions"]} | '
                      f'{full["correct"]} | {score} | {format_duration(r["elapsed_seconds"])} |')
+    if analysis:
+        lines.extend(['', '## 채점 분석', ''] + [f'- {line}' for line in analysis_markdown(analysis)])
     for r in results:
         lines.extend(['', f'## {r["model"]}', '', '| 시험지 | 원점수 | 정답 |', '| --- | ---: | ---: |'])
         for label, m in r['scores'].items():

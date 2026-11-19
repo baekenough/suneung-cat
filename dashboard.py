@@ -6,6 +6,7 @@ from urllib.error import URLError
 
 import streamlit as st
 
+from exam_analysis import markdown as analysis_markdown
 from leaderboard_data import BlobLeaderboard, REFRESH_SECONDS, local_leaderboard, packaged_leaderboard
 from subjects_catalog import COURSE_OPTIONS, ENGLISH_RELEASE, FOURTH_RELEASE, GROUPS, KST, LABELS
 
@@ -36,14 +37,14 @@ st.html('''
 .st-key-provider button { background: #fff; color: #20364d; border-color: #c4ccd7; font-size: .84rem; }
 .st-key-provider button[aria-checked="true"], .st-key-provider button[aria-pressed="true"] {
     background: #eaf5ff; color: #064a88; border-color: #0972d3; }
-.exam-board { border: 1px solid #d9e1eb; background: #fff; overflow: hidden;
+.exam-board { width: fit-content; max-width: 100%; border: 1px solid #d9e1eb; background: #fff; overflow: hidden;
               box-shadow: 0 5px 20px #172b4510; }
 .exam-board__header { padding: 20px 23px; display: flex; flex-wrap: wrap; gap: 8px 16px;
                       justify-content: space-between; align-items: baseline; }
 .exam-board__header h2 { font-size: 1.24rem; margin: 0; padding: 0; color: #162940; letter-spacing: -.025em; }
 .exam-board__status { color: #52647a; font-size: .78rem; font-variant-numeric: tabular-nums; }
 .exam-board__table { overflow-x: auto; }
-.exam-board table { width: 100%; min-width: 690px; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+.exam-board table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
 .exam-board th, .exam-board td { padding: 12px 15px; border-block-start: 1px solid #e9eef4; text-align: right; }
 .exam-board th { background: #f0f4f9; color: #425773; font-size: .76rem; white-space: nowrap; }
 .exam-board td { color: #26384d; font-size: .88rem; }
@@ -51,7 +52,9 @@ st.html('''
 .exam-board tbody tr:hover { background: #eef6ff; }
 .exam-board .name { text-align: left; font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
                    overflow-wrap: anywhere; font-weight: 650; color: #13253a; }
-.exam-board .rank { text-align: center; width: 54px; }
+.exam-board td.name { min-width: 23ch; max-width: 28ch; padding-inline-end: 12px; }
+.exam-board[data-cases="6"] :is(th, td):not(.name) { padding-inline: 8px; }
+.exam-board .rank { text-align: center; width: 48px; }
 .exam-board .rank strong { display: inline-grid; place-items: center; min-width: 1.8rem; min-height: 1.8rem;
                            border-radius: 7px; background: #edf2f8; color: #364d67; }
 .exam-board .rank .first { color: #814800; background: #ffefd1; }
@@ -81,7 +84,7 @@ st.html('''
     .stMainBlockContainer { padding: 1.25rem .85rem; }
     .exam-header { padding: 19px 18px; }
     .exam-board__header { padding: 13px 1px; }
-    .exam-board { border: 0; background: transparent; box-shadow: none; }
+    .exam-board { width: 100%; border: 0; background: transparent; box-shadow: none; }
     .exam-board__table { overflow: visible; }
     .exam-board table, .exam-board tbody { display: block; min-width: 0; }
     .exam-board thead { position: absolute; width: 1px; height: 1px; overflow: hidden;
@@ -95,6 +98,8 @@ st.html('''
                              white-space: nowrap; font-weight: 400; margin-bottom: 2px; }
     .exam-board .rank { width: auto; grid-column: 1; text-align: left; }
     .exam-board .name { grid-column: 2 / -1; }
+    .exam-board td.name { min-width: 0; max-width: none; padding-inline-end: 0; }
+    .exam-board[data-cases="6"] td:not(.name) { padding-inline: 0; }
     .exam-board :is(.score, .elapsed) { grid-column: span 3; }
     .exam-board .case { border-block-start: 1px solid #e9eef4; grid-column: span 3; }
     .exam-board[data-cases="6"] .case { grid-column: span 2; }
@@ -297,6 +302,9 @@ def leaderboard(data, subject_key, selected_provider):
 <th scope="col">평균 / {data.get('max_score', 100)}</th><th scope="col">소요시간</th>{headings}</tr></thead>
 <tbody>{''.join(rows)}</tbody></table></div></section>
 <p class="exam-note">2초마다 갱신합니다. 소요시간은 첫 요청부터 마지막 채점 응답까지입니다.</p>''')
+    if analysis := data.get('analysis'):
+        with st.expander('채점 분석'):
+            st.markdown('\n'.join(f'- {line}' for line in analysis_markdown(analysis)))
 
 
 @st.fragment(run_every=REFRESH_SECONDS)

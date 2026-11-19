@@ -72,6 +72,8 @@ Vercel 프로젝트에는 Blob의 `leaderboard.json` 주소를 `CSAT_LEADERBOARD
 
 2027학년도 영어는 17:04, 한국사·사회탐구·과학탐구·직업탐구는 20:15 KST부터 공식 자료를 내려받습니다. `release_pipeline.py`가 공개 시각을 기다린 뒤 문항·정답표를 대조하고 모델 API 평가를 시작합니다. 한국사와 탐구는 시험지별 50점 만점으로 채점합니다. 탐구 영역에서는 선택과목별 순위를 표시합니다. [평가원 공개 일정](https://cdn.kice.re.kr/27dae-suneung/index.html)
 
+채점이 끝나면 모델 점수 분포, 최단 소요시간, 오답이 많은 문항과 영어 듣기·읽기 득점률을 `analysis.json`에 기록합니다. 리더보드의 `채점 분석`에서도 볼 수 있습니다.
+
 ```bash
 .venv/bin/python release_pipeline.py english
 .venv/bin/python release_pipeline.py fourth
