@@ -37,7 +37,7 @@ st.html('''
 .st-key-provider button { background: #fff; color: #20364d; border-color: #c4ccd7; font-size: .84rem; }
 .st-key-provider button[aria-checked="true"], .st-key-provider button[aria-pressed="true"] {
     background: #eaf5ff; color: #064a88; border-color: #0972d3; }
-.exam-board { width: fit-content; max-width: 100%; border: 1px solid #d9e1eb; background: #fff; overflow: hidden;
+.exam-board { width: 100%; border: 1px solid #d9e1eb; background: #fff; overflow: hidden;
               box-shadow: 0 5px 20px #172b4510; }
 .exam-board__header { padding: 20px 23px; display: flex; flex-wrap: wrap; gap: 8px 16px;
                       justify-content: space-between; align-items: baseline; }
@@ -46,20 +46,21 @@ st.html('''
 .exam-board__table { overflow-x: auto; }
 .exam-board table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
 .exam-board th, .exam-board td { padding: 12px 15px; border-block-start: 1px solid #e9eef4; text-align: right; }
-.exam-board th { background: #f0f4f9; color: #425773; font-size: .76rem; white-space: nowrap; }
+.exam-board th { background: #f0f4f9; color: #425773; font-size: .76rem;
+                 word-break: keep-all; overflow-wrap: anywhere; }
 .exam-board td { color: #26384d; font-size: .88rem; }
 .exam-board tbody tr:nth-child(2n) { background: #fafcfe; }
 .exam-board tbody tr:hover { background: #eef6ff; }
 .exam-board .name { text-align: left; font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
                    overflow-wrap: anywhere; font-weight: 650; color: #13253a; }
-.exam-board td.name { min-width: 23ch; max-width: 28ch; padding-inline-end: 12px; }
+.exam-board td.name { padding-inline-end: 12px; }
 .exam-board[data-cases="6"] :is(th, td):not(.name) { padding-inline: 8px; }
-.exam-board .rank { text-align: center; width: 48px; }
+.exam-board .rank { text-align: center; }
 .exam-board .rank strong { display: inline-grid; place-items: center; min-width: 1.8rem; min-height: 1.8rem;
                            border-radius: 7px; background: #edf2f8; color: #364d67; }
 .exam-board .rank .first { color: #814800; background: #ffefd1; }
 .exam-board .score { font-size: 1.02rem; font-weight: 770; color: #07559e; white-space: nowrap; }
-.exam-board .elapsed { color: #425773; white-space: nowrap; }
+.exam-board :is(th, td).elapsed { color: #425773; text-align: left; white-space: nowrap; }
 .exam-board .case { color: #52647a; }
 .exam-board .route { display: table; color: #465c74; background: #eef3f8; border-radius: 5px;
                      font: 550 .68rem system-ui, sans-serif; padding: 2px 6px; margin-top: 4px; }
@@ -80,13 +81,23 @@ st.html('''
 .exam-share-status { position: absolute; z-index: 1; inset-inline-end: 0; top: calc(100% + 5px);
                      white-space: nowrap; pointer-events: none; }
 .exam-share-status:not(:empty) { padding: 4px 9px; border-radius: 5px; background: #182536; color: #fff; }
+@media (min-width: 811px) {
+    .exam-board { --model-width: clamp(194px, 25vw, 230px); }
+    .exam-board table { table-layout: fixed; }
+    .exam-board col.rank { width: 64px; }
+    .exam-board col.name { width: var(--model-width); }
+    .exam-board col.score { width: 96px; }
+    .exam-board col.elapsed { width: 108px; }
+    .exam-board[data-cases="0"] col.elapsed { width: auto; }
+}
 @media (max-width: 810px) {
     .stMainBlockContainer { padding: 1.25rem .85rem; }
     .exam-header { padding: 19px 18px; }
     .exam-board__header { padding: 13px 1px; }
-    .exam-board { width: 100%; border: 0; background: transparent; box-shadow: none; }
+    .exam-board { border: 0; background: transparent; box-shadow: none; }
     .exam-board__table { overflow: visible; }
     .exam-board table, .exam-board tbody { display: block; min-width: 0; }
+    .exam-board colgroup { display: none; }
     .exam-board thead { position: absolute; width: 1px; height: 1px; overflow: hidden;
                        clip-path: inset(50%); white-space: nowrap; }
     .exam-board tbody tr { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); column-gap: 12px;
@@ -96,9 +107,9 @@ st.html('''
     .exam-board td { text-align: left; padding: 7px 0; border: 0; grid-column: span 2; }
     .exam-board td::before { display: block; content: attr(data-label); color: #536678; font-size: .7rem;
                              white-space: nowrap; font-weight: 400; margin-bottom: 2px; }
-    .exam-board .rank { width: auto; grid-column: 1; text-align: left; }
+    .exam-board .rank { grid-column: 1; text-align: left; }
     .exam-board .name { grid-column: 2 / -1; }
-    .exam-board td.name { min-width: 0; max-width: none; padding-inline-end: 0; }
+    .exam-board td.name { padding-inline-end: 0; }
     .exam-board[data-cases="6"] td:not(.name) { padding-inline: 0; }
     .exam-board :is(.score, .elapsed) { grid-column: span 3; }
     .exam-board .case { border-block-start: 1px solid #e9eef4; grid-column: span 3; }
@@ -298,8 +309,9 @@ def leaderboard(data, subject_key, selected_provider):
 <header class="exam-board__header"><h2>{subject} 모델 순위</h2>
 <span class="exam-board__status">{len(models)}개 모델 · {update} 갱신</span></header>
 <div class="exam-board__table"><table aria-label="수능 {subject} 모델 순위">
+<colgroup><col class="rank"><col class="name"><col class="score"><col class="elapsed">{'<col>' * len(cases)}</colgroup>
 <thead><tr><th class="rank" scope="col">순위</th><th class="name" scope="col">모델</th>
-<th scope="col">평균 / {data.get('max_score', 100)}</th><th scope="col">소요시간</th>{headings}</tr></thead>
+<th scope="col">평균 / {data.get('max_score', 100)}</th><th class="elapsed" scope="col">소요시간</th>{headings}</tr></thead>
 <tbody>{''.join(rows)}</tbody></table></div></section>
 <p class="exam-note">2초마다 갱신합니다. 소요시간은 첫 요청부터 마지막 채점 응답까지입니다.</p>''')
     if analysis := data.get('analysis'):

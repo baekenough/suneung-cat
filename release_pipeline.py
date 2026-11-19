@@ -14,12 +14,12 @@ from subjects_catalog import ENGLISH_RELEASE, FOURTH_RELEASE, LABELS, RELEASE_AS
 ROOT = Path(__file__).resolve().parent
 ENGLISH_MODELS = ('google/gemini-3.8-flash', 'qwen/qwen3.8-omni-flash',
                   'xiaomi/mimo-v2.6-flash', 'meta/muse-ember')
-COMMON_MODELS = ('gpt-6.2-sol', 'gpt-6.1-terra', 'claude-opus-5-5',
+COMMON_MODELS = ('gpt-6.2-astra', 'gpt-6.2-sol', 'gpt-6.1-terra',
+                 'claude-fable-5-2', 'claude-opus-5-5', 'claude-sonnet-5-5',
                  'google/gemini-4-hydrogen', 'google/gemma-4-31b-it')
 EXTRA_MODELS = {
-    'history': ('claude-fable-5-2',),
-    'social': ('claude-fable-5-2', 'qwen/qwen3.8-flash'),
-    'science': ('gpt-6.2-astra', 'meta/muse-glimmer-30b'),
+    'social': ('qwen/qwen3.8-flash',),
+    'science': ('meta/muse-glimmer-30b',),
     'vocational': ('qwen/qwen3.8-flash',),
 }
 
@@ -32,7 +32,7 @@ def run_dataset(dataset):
         models, workers = ENGLISH_MODELS, 20
     else:
         prepare = ['prepare_fourth.py', '--subject', dataset]
-        models, workers = COMMON_MODELS + EXTRA_MODELS[RELEASE_ASSETS[dataset][0]], 8
+        models, workers = COMMON_MODELS + EXTRA_MODELS.get(RELEASE_ASSETS[dataset][0], ()), 8
     if subprocess.call([sys.executable, *prepare], cwd=ROOT):
         print(f'{label} · 자료 준비 실패', flush=True)
         return False
