@@ -267,6 +267,8 @@ def leaderboard(data, subject_key, selected_provider):
         else:
             st.info(f'{subject} 문항을 준비 중입니다.')
         return
+    if subject_key == 'english':
+        st.caption('영어는 공식 듣기 음원도 사용해, 문제 이미지와 오디오를 모두 지원하는 모델만 평가했습니다.')
     models = data['models']
     if not models:
         st.info(f'{subject} {data["questions"]}문항이 준비됐습니다. 모델 평가를 기다리고 있습니다.')
@@ -274,7 +276,9 @@ def leaderboard(data, subject_key, selected_provider):
     if selected_provider != 'all':
         models = [model for model in models if provider_group(model) == selected_provider]
     if not models:
-        st.info(f'{subject}의 {PROVIDERS[selected_provider]} 평가 결과를 준비 중입니다.')
+        provider_name = PROVIDERS[selected_provider]
+        st.info(f'{provider_name}의 영어 평가 결과가 없습니다.' if subject_key == 'english'
+                else f'{subject}의 {provider_name} 평가 결과를 준비 중입니다.')
         return
 
     cases = []
