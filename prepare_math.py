@@ -66,13 +66,14 @@ def bounds_for_questions(page, allowed):
         raise ValueError(f'PDF p.{page.number + 1}의 kordoc 문항과 인쇄 순서가 일치하지 않습니다.')
 
 
-def render_crop(page, area, destination):
+def render_crop(page, area, destination, color=False):
     from PIL import Image, ImageChops
 
     scale = 2.5
-    pixmap = page.get_pixmap(matrix=fitz.Matrix(scale, scale), clip=area, colorspace=fitz.csGRAY, alpha=False)
-    image = Image.frombytes('L', (pixmap.width, pixmap.height), pixmap.samples)
-    ink = ImageChops.invert(image).point(lambda value: 255 if value > 34 else 0).getbbox()
+    colorspace = fitz.csRGB if color else fitz.csGRAY
+    pixmap = page.get_pixmap(matrix=fitz.Matrix(scale, scale), clip=area, colorspace=colorspace, alpha=False)
+    image = Image.frombytes('RGB' if color else 'L', (pixmap.width, pixmap.height), pixmap.samples)
+    ink = ImageChops.invert(image.convert('L') if color else image).point(lambda value: 255 if value > 34 else 0).getbbox()
     if ink is None:
         raise ValueError(f'PDF p.{page.number + 1}에 비어 있는 문항 영역이 있습니다.')
     x0, y0, x1, y1 = ink

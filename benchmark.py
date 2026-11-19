@@ -22,6 +22,7 @@ from urllib.request import Request, urlopen
 
 from native_models import ANTHROPIC, OPENAI, native_request, normalize_response
 from result_store import save_results
+from subjects_catalog import DATASETS, dataset_directory
 
 ROOT = Path(__file__).resolve().parent
 DEFAULT_MODEL = 'solar-mini-4-5-preview'
@@ -113,7 +114,8 @@ def make_messages(question, output=None):
     if 'image' in question:
         numeric = question['answer_type'] == 'integer'
         answer_label = '0~999 사이의 정수' if numeric else '선택지 번호 1~5 사이의 정수'
-        message = f'이미지에 있는 수능 수학 문제 하나를 푸세요. 정답 {answer_label}를 JSON의 answer 값으로 반환하세요.'
+        subject = question.get('subject', '수학')
+        message = f'이미지에 있는 수능 {subject} 문제 하나를 푸세요. 정답 {answer_label}를 JSON의 answer 값으로 반환하세요.'
         if question.get('subject') == '영어' or question['section'] in ('듣기', '읽기'):
             task = question.get('task_instruction', '')
             message = ('Solve the English CSAT question shown. Use the attached recording for listening questions. '
@@ -301,19 +303,20 @@ def ranking_key(model):
 def summarize(directories, data, answers, config):
     questions = data['questions']
     electives = data.get('electives', ELECTIVES)
+    forms = data.get('forms', FORMS)
     results = []
     for path in sorted(path for directory in directories for path in directory.glob('*.json')):
         stored = read_json(path)
         records = stored['records']
         scopes = {}
-        for form in FORMS:
+        for form in forms:
             for section in ('공통', *electives, *data.get('sections', ())):
                 ids = [qid for qid, q in questions.items() if q['form'] == form and (
                     (not electives and section == '공통') or q['section'] in ('공통', section))]
                 scopes[f'{form} {section}'] = cohort_metrics(ids, records, answers)
         full = cohort_metrics(list(questions), records, answers)
         mean = (statistics.mean(scopes[f'{form} {elective}']['points']
-                                for form in FORMS for elective in (electives or ('공통',)))
+                                for form in forms for elective in (electives or ('공통',)))
                 if full['solved'] == full['questions'] else None)
         solved = [r for r in records.values() if 'answer' in r]
         responses = [dict(qid=qid, **answers[qid], prediction=records.get(qid, {}).get('answer'),
@@ -351,6 +354,8 @@ def report(output, directories, data, answers, config):
     write_json(output / 'results.json', summary)
     score_description = ('공식 배점으로 채점한 홀수형·짝수형 100점 원점수의 평균으로 순위를 매깁니다.'
                          if subject == '영어' else
+                         '시험지별 50점 만점의 공식 원점수를 평균해 순위를 매깁니다.'
+                         if 'forms' in data else
                          '공식 배점으로 채점한 홀수형·짝수형 × 선택과목의 100점 원점수 평균으로 순위를 매깁니다. '
                          '공통 문항은 형별로 한 번씩 풀고 각 선택과목 점수에 공통으로 반영합니다.')
     lines = [f'# {data["year"]}학년도 수능 {subject} 모델 평가', '',
@@ -392,7 +397,7 @@ def run_directories(output, config):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--subject', choices=['korean', 'math', 'english'], default='korean')
+    parser.add_argument('--subject', choices=DATASETS, default='korean')
     parser.add_argument('--year', type=int, default=2027)
     parser.add_argument('--model', action='append', help='Upstage, OpenRouter, OpenAI 또는 Anthropic 모델 ID')
     parser.add_argument('--workers', type=int, default=8, choices=range(1, 33), metavar='1–32')
@@ -401,7 +406,7 @@ def main():
                         help='이전에 실패한 문항을 재호출할 때 쓸 추론 설정')
     parser.add_argument('--output', type=Path, default=ROOT / 'output')
     args = parser.parse_args()
-    output = args.output / (str(args.year) if args.subject == 'korean' else f'{args.year}-{args.subject}')
+    output = args.output / dataset_directory(args.subject, args.year)
     data = read_json(output / 'questions.json')
     key_data = read_json(output / 'answer_key.json')
     questions, answers = data['questions'], key_data['answers']
@@ -412,7 +417,7 @@ def main():
     directory.mkdir(parents=True, exist_ok=True)
     models = list(dict.fromkeys(args.model or [DEFAULT_MODEL]))
     if any(model_endpoint(model) == UPSTAGE for model in models) and args.subject != 'korean':
-        raise SystemExit('수학·영어는 필요한 입력 형식을 지원하는 모델을 --model로 지정하세요.')
+        raise SystemExit('문항 이미지 입력을 지원하는 모델을 --model로 지정하세요.')
     if args.subject == 'english' and any(model_endpoint(model) != OPENROUTER for model in models):
         raise SystemExit('영어는 오디오와 이미지를 지원하는 OpenRouter 모델을 지정하세요.')
     workspace_id = config_value('ANTHROPIC_WORKSPACE_ID') if any(model_endpoint(m) == ANTHROPIC for m in models) else None

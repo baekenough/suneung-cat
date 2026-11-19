@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta, timezone
+from datetime import datetime
 from html import escape
 import base64
 import os
@@ -6,16 +6,14 @@ from urllib.error import URLError
 
 import streamlit as st
 
-from benchmark import format_duration
 from leaderboard_data import BlobLeaderboard, REFRESH_SECONDS, local_leaderboard, packaged_leaderboard
+from subjects_catalog import COURSE_OPTIONS, ENGLISH_RELEASE, FOURTH_RELEASE, GROUPS, KST, LABELS
 
 SERVICE_NAME = '수능냥이'
 TITLE = '2027학년도 수능 풀이 모델 리더보드'
-SUBJECTS = {'korean': '국어', 'math': '수학'}
 SHORT_COURSES = {'화법과 작문': '화작', '언어와 매체': '언매'}
 PROVIDERS = {'all': '전체', 'openai': 'OpenAI', 'anthropic': 'Anthropic',
              'gemini': 'Gemini', 'openrouter': 'OpenRouter', 'upstage': 'Upstage'}
-KST = timezone(timedelta(hours=9))
 
 st.set_page_config(page_title=f'{SERVICE_NAME} · {TITLE}', layout='wide')
 st.html('''
@@ -29,37 +27,40 @@ st.html('''
                   color: #f8fafc; margin: 0; padding: 0; overflow-wrap: anywhere; }
 .exam-header p { color: #d1d8e3; margin: .65rem 0 0; font-size: .94rem; }
 .exam-header .exam-service-name { color: #ffbd61; margin: 0 0 .5rem; font-size: 1rem; font-weight: 750; }
-.st-key-subject [role="radiogroup"] { gap: .45rem; }
-.st-key-subject label { background: #fff; padding: .45rem .8rem; border: 1px solid #b6bec9;
-                        border-radius: 8px; min-width: 76px; color: #161d26; }
-.st-key-subject label:has(input:checked) { background: #eaf5ff; border-color: #0972d3; color: #033160; }
-.st-key-subject label:has(input:checked) > div:first-child { background-color: #0972d3; border-color: #0972d3; }
-.st-key-subject label:focus-within { outline: 2px solid #0972d3; outline-offset: 2px; }
+.st-key-subject button { min-height: 40px; padding: .4rem .85rem; background: #fff; color: #263d56;
+                         border: 1px solid #cdd9e7; border-radius: 8px; font-weight: 650; }
+.st-key-subject button:hover { border-color: #82b4e1; background: #f2f8fe; }
+.st-key-subject button[aria-checked="true"], .st-key-subject button[aria-pressed="true"] {
+    background: #e3f1ff; border-color: #096ec5; color: #074a87; }
+.st-key-subject button:focus-visible { outline: 2px solid #0972d3; outline-offset: 2px; }
 .st-key-provider button { background: #fff; color: #20364d; border-color: #c4ccd7; font-size: .84rem; }
 .st-key-provider button[aria-checked="true"], .st-key-provider button[aria-pressed="true"] {
     background: #eaf5ff; color: #064a88; border-color: #0972d3; }
-.exam-board { border: 1px solid #d5dae1; background: #fff; overflow: hidden; }
-.exam-board__header { padding: 16px 20px; display: flex; flex-wrap: wrap; gap: 8px 16px;
+.exam-board { border: 1px solid #d9e1eb; background: #fff; overflow: hidden;
+              box-shadow: 0 5px 20px #172b4510; }
+.exam-board__header { padding: 20px 23px; display: flex; flex-wrap: wrap; gap: 8px 16px;
                       justify-content: space-between; align-items: baseline; }
-.exam-board__header h2 { font-size: 1.125rem; margin: 0; padding: 0; color: #161d26; }
-.exam-board__status { color: #46566b; font-size: .82rem; }
+.exam-board__header h2 { font-size: 1.24rem; margin: 0; padding: 0; color: #162940; letter-spacing: -.025em; }
+.exam-board__status { color: #52647a; font-size: .78rem; font-variant-numeric: tabular-nums; }
 .exam-board__table { overflow-x: auto; }
-.exam-board table { width: 100%; min-width: 760px; border-collapse: collapse; font-variant-numeric: tabular-nums; }
-.exam-board th, .exam-board td { padding: 12px 13px; border-block-start: 1px solid #e2e5eb; text-align: right; }
-.exam-board th { background: #f3f5f7; color: #36465a; font-size: .76rem; white-space: nowrap; }
+.exam-board table { width: 100%; min-width: 690px; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+.exam-board th, .exam-board td { padding: 12px 15px; border-block-start: 1px solid #e9eef4; text-align: right; }
+.exam-board th { background: #f0f4f9; color: #425773; font-size: .76rem; white-space: nowrap; }
 .exam-board td { color: #26384d; font-size: .88rem; }
-.exam-board tbody tr:hover { background: #f2f8fd; }
+.exam-board tbody tr:nth-child(2n) { background: #fafcfe; }
+.exam-board tbody tr:hover { background: #eef6ff; }
 .exam-board .name { text-align: left; font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
                    overflow-wrap: anywhere; font-weight: 650; color: #13253a; }
-.exam-board .rank { text-align: center; width: 48px; }
-.exam-board .rank strong { display: inline-block; min-width: 1.6rem; padding: .1rem .25rem;
-                           border-radius: 4px; background: #edf1f6; color: #34475d; }
+.exam-board .rank { text-align: center; width: 54px; }
+.exam-board .rank strong { display: inline-grid; place-items: center; min-width: 1.8rem; min-height: 1.8rem;
+                           border-radius: 7px; background: #edf2f8; color: #364d67; }
 .exam-board .rank .first { color: #814800; background: #ffefd1; }
-.exam-board .score { font-weight: 750; color: #07559e; white-space: nowrap; }
-.exam-board .elapsed { white-space: nowrap; }
-.exam-board .progress { min-width: 105px; text-align: left; white-space: nowrap; }
-.exam-board progress { display: block; width: 100%; height: 5px; accent-color: #0972d3; margin-top: 6px; }
-.exam-board .route { display: block; color: #536678; font: 400 .73rem system-ui, sans-serif; margin-top: 2px; }
+.exam-board .score { font-size: 1.02rem; font-weight: 770; color: #07559e; white-space: nowrap; }
+.exam-board .elapsed { color: #425773; white-space: nowrap; }
+.exam-board .case { color: #52647a; }
+.exam-board .route { display: table; color: #465c74; background: #eef3f8; border-radius: 5px;
+                     font: 550 .68rem system-ui, sans-serif; padding: 2px 6px; margin-top: 4px; }
+.exam-board .route:empty { display: none; }
 .exam-note { color: #536678; font-size: .82rem; margin: .75rem 0 0; }
 .exam-byline { color: #46566b;
                display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center;
@@ -80,22 +81,23 @@ st.html('''
     .stMainBlockContainer { padding: 1.25rem .85rem; }
     .exam-header { padding: 19px 18px; }
     .exam-board__header { padding: 13px 1px; }
-    .exam-board { border: 0; background: transparent; }
+    .exam-board { border: 0; background: transparent; box-shadow: none; }
     .exam-board__table { overflow: visible; }
     .exam-board table, .exam-board tbody { display: block; min-width: 0; }
     .exam-board thead { position: absolute; width: 1px; height: 1px; overflow: hidden;
                        clip-path: inset(50%); white-space: nowrap; }
-    .exam-board tbody tr { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); column-gap: 10px;
-                          background: #fff; border: 1px solid #d5dae1; border-radius: 10px;
-                          padding: 10px 13px; margin-bottom: 9px; }
-    .exam-board tbody tr:hover { background: #fff; }
+    .exam-board tbody tr { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); column-gap: 12px;
+                          background: #fff; border: 1px solid #dce4ee; border-radius: 12px;
+                          padding: 12px 14px; margin-bottom: 10px; }
+    .exam-board tbody tr:nth-child(2n), .exam-board tbody tr:hover { background: #fff; }
     .exam-board td { text-align: left; padding: 7px 0; border: 0; grid-column: span 2; }
     .exam-board td::before { display: block; content: attr(data-label); color: #536678; font-size: .7rem;
                              white-space: nowrap; font-weight: 400; margin-bottom: 2px; }
     .exam-board .rank { width: auto; grid-column: 1; text-align: left; }
     .exam-board .name { grid-column: 2 / -1; }
-    .exam-board .progress { min-width: 0; }
-    .exam-board .case { border-block-start: 1px solid #e2e5eb; }
+    .exam-board :is(.score, .elapsed) { grid-column: span 3; }
+    .exam-board .case { border-block-start: 1px solid #e9eef4; grid-column: span 3; }
+    .exam-board[data-cases="6"] .case { grid-column: span 2; }
     .exam-board .rank::before, .exam-board .name::before { content: none; }
 }
 </style>
@@ -124,7 +126,8 @@ st.html(f'''<aside class="exam-byline" aria-label="자료 출처 및 제작자">
 rel="noopener noreferrer">한국교육과정평가원 2027학년도 수능 자료</a>에서 받음</p>
 <nav aria-label="제작자 연락처">
 <button id="exam-share" type="button" aria-label="URL 공유하기" title="URL 공유하기"
-data-subject="{' '.join(SUBJECTS)}" data-provider="{' '.join(PROVIDERS)}">{share_icon}</button>
+data-subject="{' '.join(GROUPS)}" data-provider="{' '.join(PROVIDERS)}"
+data-course="{' '.join(key for group in COURSE_OPTIONS.values() for key in group)}">{share_icon}</button>
 <a href="https://www.linkedin.com/in/%EC%83%81%EC%9D%B4-%EB%B0%B1-a8b028203/" target="_blank"
 rel="noopener noreferrer" aria-label="LinkedIn">
 {linkedin_icon}
@@ -142,7 +145,7 @@ rel="noopener noreferrer" aria-label="LinkedIn">
     button.onclick = async () => {
         const url = new URL('https://suneung-cat.vercel.app/');
         const current = new URLSearchParams(window.location.search);
-        for (const key of ['subject', 'provider']) {
+        for (const key of ['subject', 'course', 'provider']) {
             const value = current.get(key);
             if (button.dataset[key].split(' ').includes(value)) {
                 url.searchParams.set(key, value);
@@ -175,13 +178,29 @@ st.html(f'''<header class="exam-header"><p class="exam-service-name">{SERVICE_NA
 
 def save_subject():
     st.query_params['subject'] = st.session_state.subject
+    st.query_params.pop('course', None)
 
 
 if 'subject' not in st.session_state:
     requested_subject = st.query_params.get('subject', 'korean')
-    st.session_state.subject = requested_subject if requested_subject in SUBJECTS else 'korean'
-subject = st.radio('과목', list(SUBJECTS), key='subject', on_change=save_subject,
-                   format_func=SUBJECTS.__getitem__, horizontal=True, label_visibility='collapsed')
+    st.session_state.subject = requested_subject if requested_subject in GROUPS else 'korean'
+subject = st.pills('과목', list(GROUPS), key='subject', on_change=save_subject, required=True,
+                   format_func=GROUPS.__getitem__, label_visibility='collapsed')
+
+
+def save_course(key):
+    st.query_params['course'] = st.session_state[key]
+
+
+dataset = subject
+if subject in COURSE_OPTIONS:
+    options = COURSE_OPTIONS[subject]
+    course_key = f'course-{subject}'
+    if course_key not in st.session_state:
+        requested_course = st.query_params.get('course')
+        st.session_state[course_key] = requested_course if requested_course in options else next(iter(options))
+    dataset = st.selectbox('탐구 선택과목', list(options), key=course_key, format_func=options.__getitem__,
+                           on_change=save_course, args=(course_key,))
 
 
 def save_provider():
@@ -221,16 +240,20 @@ def board_data(subject_key):
 
 
 def leaderboard(data, subject_key, selected_provider):
-    subject = SUBJECTS[subject_key]
+    subject = LABELS[subject_key]
     if data is False:
         st.warning('리더보드 데이터를 다시 불러오는 중입니다.')
         return
     if not data:
-        st.info(f'{subject} 문항을 준비 중입니다.')
+        release = ENGLISH_RELEASE if subject_key == 'english' else FOURTH_RELEASE
+        if subject_key not in ('korean', 'math') and datetime.now(KST) < release:
+            st.info(f'{subject} 공식 자료 공개 예정 · {release:%H:%M} KST')
+        else:
+            st.info(f'{subject} 문항을 준비 중입니다.')
         return
     models = data['models']
     if not models:
-        st.info(f'{subject} {data["questions"]}문항 준비 완료. 평가를 시작하면 진행률이 표시됩니다.')
+        st.info(f'{subject} {data["questions"]}문항이 준비됐습니다. 모델 평가를 기다리고 있습니다.')
         return
     if selected_provider != 'all':
         models = [model for model in models if provider_group(model) == selected_provider]
@@ -241,11 +264,10 @@ def leaderboard(data, subject_key, selected_provider):
     cases = []
     for case in data['cases']:
         form, course = case.split(' ', 1)
-        cases.append((case, f'{form[:2]} {SHORT_COURSES.get(course, course)}'))
+        label = form if course == '공통' else f'{form[:2]} {SHORT_COURSES.get(course, course)}'
+        cases.append((case, label))
     rows = []
     for model in models:
-        submitted = model['solved']
-        total = model['questions']
         mean = model['mean_score']
         scores = []
         for case, label in cases:
@@ -254,6 +276,8 @@ def leaderboard(data, subject_key, selected_provider):
             scores.append(f'<td class="case" data-label="{escape(label)}">{value}</td>')
         average = f'{mean:.2f}' if mean is not None else '–'
         rank = model['rank'] or '–'
+        elapsed = model['elapsed_seconds']
+        duration = f'{elapsed:,.2f}초' if elapsed is not None else '–'
         badge = 'first' if rank == 1 else ''
         group = provider_group(model)
         route = PROVIDERS.get(group, '')
@@ -262,17 +286,15 @@ def leaderboard(data, subject_key, selected_provider):
         rows.append(f'''<tr><td class="rank"><strong class="{badge}">{rank}</strong></td>
 <td class="name">{escape(model['model'])}<small class="route">{route}</small></td>
 <td class="score" data-label="평균">{average}</td>
-<td class="progress" data-label="채점 완료">{submitted}/{total}<progress value="{submitted}" max="{total}" aria-label="채점 진행률"></progress></td>
-<td class="elapsed" data-label="소요시간">{format_duration(model['elapsed_seconds'])}</td>{''.join(scores)}</tr>''')
+<td class="elapsed" data-label="소요시간">{duration}</td>{''.join(scores)}</tr>''')
     headings = ''.join(f'<th scope="col">{escape(label)}</th>' for _, label in cases)
-    complete = sum(model['mean_score'] is not None for model in models)
     update = datetime.fromtimestamp(data['updated_at'], KST).strftime('%H:%M:%S')
-    st.html(f'''<section class="exam-board" aria-label="{subject} 리더보드">
+    st.html(f'''<section class="exam-board" aria-label="{subject} 리더보드" data-cases="{len(cases)}">
 <header class="exam-board__header"><h2>{subject} 모델 순위</h2>
-<span class="exam-board__status">{complete}/{len(models)}개 모델 완료 · {update} 갱신</span></header>
+<span class="exam-board__status">{len(models)}개 모델 · {update} 갱신</span></header>
 <div class="exam-board__table"><table aria-label="수능 {subject} 모델 순위">
 <thead><tr><th class="rank" scope="col">순위</th><th class="name" scope="col">모델</th>
-<th scope="col">평균</th><th class="progress" scope="col">채점 완료</th><th scope="col">소요시간</th>{headings}</tr></thead>
+<th scope="col">평균 / {data.get('max_score', 100)}</th><th scope="col">소요시간</th>{headings}</tr></thead>
 <tbody>{''.join(rows)}</tbody></table></div></section>
 <p class="exam-note">2초마다 갱신합니다. 소요시간은 첫 요청부터 마지막 채점 응답까지입니다.</p>''')
 
@@ -283,6 +305,6 @@ def watch_board(subject_key, displayed_data):
         st.rerun()
 
 
-data = board_data(subject)
-leaderboard(data, subject, provider)
-watch_board(subject, data)
+data = board_data(dataset)
+leaderboard(data, dataset, provider)
+watch_board(dataset, data)

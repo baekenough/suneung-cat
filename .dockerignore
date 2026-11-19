@@ -6,6 +6,9 @@
 !benchmark.py
 !native_models.py
 !result_store.py
+!subjects_catalog.py
+!.streamlit/
+!.streamlit/config.toml
 !public-leaderboard.json
 !static/
 !static/suneung-cat-og.jpg

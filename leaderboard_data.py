@@ -15,13 +15,13 @@ from urllib.parse import parse_qsl, urlencode, urlsplit
 from urllib.request import Request, urlopen
 
 from benchmark import ELECTIVES, FORMS, ROOT, comparison_config, read_json, run_directories, summarize, write_json
+from subjects_catalog import DATASETS, dataset_directory
 
-DATASETS = {'korean': '2027', 'math': '2027-math'}
 REFRESH_SECONDS = 2
 
 
 def local_leaderboard(subject):
-    output = ROOT / 'output' / DATASETS[subject]
+    output = ROOT / 'output' / dataset_directory(subject)
     try:
         inputs = tuple((output / name).stat().st_mtime_ns for name in ('questions.json', 'answer_key.json'))
         runs = tuple(sorted((path, path.stat().st_mtime_ns) for path in (output / 'runs').glob('*/*.json')))
@@ -30,13 +30,16 @@ def local_leaderboard(subject):
     return score_local_files(output, (inputs, runs))
 
 
-@lru_cache(maxsize=4)
+@lru_cache(maxsize=2 * len(DATASETS))
 def score_local_files(output, version):
     data = read_json(output / 'questions.json')
     key = read_json(output / 'answer_key.json')
     config = comparison_config(data, key, 'medium')
     directories = run_directories(output, config)
-    cases = [f'{form} {course}' for form in FORMS for course in data.get('electives', ELECTIVES)]
+    forms = data.get('forms', FORMS)
+    sections = (*data.get('electives', ELECTIVES), *data.get('sections', ()))
+    cases = [f'{form} {section}' for form in forms
+             for section in (sections or (('공통',) if len(forms) > 1 else ()))]
     models = []
     for result in summarize(directories, data, key['answers'], config)['models']:
         row = {field: result[field] for field in ('model', 'endpoint', 'rank', 'mean_score', 'elapsed_seconds')}
@@ -45,6 +48,7 @@ def score_local_files(output, version):
             for name, record in result['scores'].items() if name in cases})
         models.append(row)
     return {'questions': len(data['questions']), 'cases': cases, 'models': models,
+            'max_score': data.get('max_score', 100),
             'updated_at': max((p.stat().st_mtime for d in directories for p in d.glob('*.json')), default=0)}
 
 

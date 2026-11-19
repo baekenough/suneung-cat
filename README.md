@@ -1,6 +1,6 @@
 # 수능냥이
 
-수능 국어·수학 문제를 문항별로 나눠 모델 API에 병렬로 요청하고, 공식 정답표로 채점합니다. 2026학년도 자료는 문항 분리 검증에 사용합니다. Streamlit에서 과목별 순위, 채점 진행률, 소요시간을 2초마다 갱신합니다.
+수능 국어·수학·영어·한국사·탐구 문제를 문항별로 나눠 모델 API에 병렬로 요청하고, 공식 정답표로 채점합니다. 2026학년도 자료는 문항 분리 검증에 사용합니다. Streamlit에서 과목별 순위, 원점수, 소요시간을 2초마다 갱신합니다.
 
 ## 설치
 
@@ -56,7 +56,7 @@ Vercel 프로젝트에는 Blob의 `leaderboard.json` 주소를 `CSAT_LEADERBOARD
 
 ## 영어 준비
 
-`subjects/`에 영어 문제지 PDF와 공식 듣기 음원 ZIP을, `answer_sheets/`에 영어 정답표 PDF를 둡니다. `prepare_english.py`는 문항 90개와 듣기용 MP3 16개를 준비합니다. 16–17번은 공통 음원에 각 문항 이미지를 함께 보냅니다. 오디오와 이미지 입력을 확인한 OpenRouter 모델은 `google/gemini-3.8-flash`, `meta/muse-ember`, `qwen/qwen3.8-omni-flash`, `xiaomi/mimo-v2.6-flash`입니다. Streamlit 화면에는 국어와 수학을 표시합니다.
+`subjects/`에 영어 문제지 PDF와 공식 듣기 음원 ZIP을, `answer_sheets/`에 영어 정답표 PDF를 둡니다. `prepare_english.py`는 문항 90개를 준비합니다. 2026학년도 듣기 16–17번은 공통 음원에 각 문항 이미지를 함께 보냅니다. 영어 리더보드는 기형별 듣기와 읽기 원점수도 표시합니다.
 
 ```bash
 .venv/bin/python prepare_english.py --year 2026
@@ -67,5 +67,16 @@ Vercel 프로젝트에는 Blob의 `leaderboard.json` 주소를 `CSAT_LEADERBOARD
 ```bash
 .venv/bin/python prepare_english.py --year 2027 --download --wait-for-release
 ```
+
+## 공식 공개 연동
+
+2027학년도 영어는 17:04, 한국사·사회탐구·과학탐구·직업탐구는 20:15 KST부터 공식 자료를 내려받습니다. `release_pipeline.py`가 공개 시각을 기다린 뒤 문항·정답표를 대조하고 모델 API 평가를 시작합니다. 한국사와 탐구는 시험지별 50점 만점으로 채점합니다. 탐구 영역에서는 선택과목별 순위를 표시합니다. [평가원 공개 일정](https://cdn.kice.re.kr/27dae-suneung/index.html)
+
+```bash
+.venv/bin/python release_pipeline.py english
+.venv/bin/python release_pipeline.py fourth
+```
+
+두 작업은 각각 같은 명령으로 재개할 수 있으며 성공 답안을 재사용합니다. 4교시는 `--subject science-01`처럼 특정 선택과목만 재개할 수 있습니다. 공개 주소에는 `leaderboard_data.py --publish --watch`가 집계 데이터를 반영합니다.
 
 [Kordoc](https://github.com/chrisryugj/kordoc) · [OpenAI Responses API](https://developers.openai.com/api/reference/resources/responses/methods/create) · [Anthropic Messages API](https://platform.claude.com/docs/en/api/messages/create) · [OpenRouter 오디오 입력](https://openrouter.ai/docs/guides/overview/multimodal/audio)

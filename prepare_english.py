@@ -1,22 +1,18 @@
 #!/usr/bin/env python3
 """Prepare English CSAT images, official audio tracks and scoring keys."""
 import argparse
-from datetime import datetime, timedelta, timezone
 import re
-from shutil import copyfileobj
-from tempfile import TemporaryDirectory
-import time
 import unicodedata
 from pathlib import Path
 from subprocess import run
-from urllib.error import URLError
-from urllib.request import urlopen
-from zipfile import BadZipFile, ZipFile
+from zipfile import ZipFile
 
 import fitz
 
 from prepare_exam import CHOICES, FORMS, ROOT, kordoc, sha256, write_json
 from prepare_math import render_crop
+from kice_files import await_release, fetch_asset
+from subjects_catalog import ENGLISH_RELEASE
 
 MARK = re.compile(r'^(\d{1,2})\.(?:\s|$)|^\[(\d{1,2})[~～](\d{1,2})\]')
 PASSAGES = {41: [41, 42], 43: [43, 44, 45]}
@@ -25,8 +21,6 @@ GROUP_PROMPTS = {
     36: 'Choose the correct order of the paragraphs following the given paragraph.',
     38: 'Choose where the given sentence best fits in the passage.',
 }
-KICE_RELEASE = datetime(2026, 11, 19, 17, 4, tzinfo=timezone(timedelta(hours=9)))
-KICE_CDNS = ('https://cdn.kice.re.kr/27dae-suneung/', 'https://cdn2.kice.re.kr/27dae-suneung/')
 KICE_ENGLISH = (
     ('27DaeSuneung_3.pdf', 'subjects', '_문제지', 'pdf'),
     ('27DaeSuneung_3a.pdf', 'answer_sheets', '_정답표', 'pdf'),
@@ -46,54 +40,14 @@ def source(folder, year, phrase, suffix):
 
 
 def download_2027(wait):
-    remaining = (KICE_RELEASE - datetime.now(KICE_RELEASE.tzinfo)).total_seconds()
-    if remaining > 0:
-        message = f'평가원 2027학년도 영어 공개 예정 {KICE_RELEASE:%Y-%m-%d %H:%M} KST'
-        if not wait:
-            raise SystemExit(message)
-        print(f'{message} · 공개 시각까지 대기 중', flush=True)
-        while remaining > 0:
-            time.sleep(min(60, remaining))
-            remaining = (KICE_RELEASE - datetime.now(KICE_RELEASE.tzinfo)).total_seconds()
-
+    await_release(ENGLISH_RELEASE, '2027학년도 영어', wait)
     for remote_name, folder, phrase, suffix in KICE_ENGLISH:
         try:
             source(folder, 2027, phrase, suffix)
             continue
         except FileNotFoundError:
             pass
-        destination = ROOT / folder / f'2027_영어영역{phrase}.{suffix}'
-        destination.parent.mkdir(exist_ok=True)
-        with TemporaryDirectory(prefix='.kice-', dir=destination.parent) as temporary:
-            staged = Path(temporary) / destination.name
-            for attempt in range(6):
-                for base in KICE_CDNS:
-                    try:
-                        with urlopen(base + remote_name, timeout=45) as response, staged.open('wb') as target:
-                            copyfileobj(response, target)
-                        if suffix == 'pdf':
-                            with fitz.open(staged, filetype='pdf') as document:
-                                if not len(document):
-                                    raise ValueError('빈 PDF')
-                        else:
-                            with ZipFile(staged) as archive:
-                                if archive.testzip():
-                                    raise ValueError('손상된 음원 ZIP')
-                    except (URLError, TimeoutError, OSError, ValueError, RuntimeError, BadZipFile) as error:
-                        last_error = error
-                        continue
-                    try:
-                        destination.hardlink_to(staged)
-                    except FileExistsError:
-                        pass
-                    break
-                else:
-                    if attempt == 5:
-                        raise RuntimeError(f'평가원 파일 {remote_name} 다운로드 실패') from last_error
-                    time.sleep(10)
-                    continue
-                break
-        print(f'공식 자료 확인 · {destination.relative_to(ROOT)}', flush=True)
+        fetch_asset(remote_name, ROOT / folder / f'2027_영어영역{phrase}.{suffix}')
 
 
 def audio_files(archive, output):
