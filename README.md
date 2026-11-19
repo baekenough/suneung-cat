@@ -72,7 +72,7 @@ Vercel 프로젝트에는 Blob의 `leaderboard.json` 주소를 `CSAT_LEADERBOARD
 
 2027학년도 영어는 17:04, 한국사·사회탐구·과학탐구·직업탐구는 20:15 KST부터 공식 자료를 내려받습니다. `release_pipeline.py`가 공개 시각을 기다린 뒤 문항·정답표를 대조하고 모델 API 평가를 시작합니다. 한국사와 탐구는 시험지별 50점 만점으로 채점합니다. 탐구 영역에서는 선택과목별 순위를 표시합니다. [평가원 공개 일정](https://cdn.kice.re.kr/27dae-suneung/index.html)
 
-한국사와 모든 탐구 과목은 OpenAI Astra·Sol·Terra와 Anthropic Fable·Opus·Sonnet을 공통으로 평가합니다. 영어는 문제 이미지와 공식 듣기 음원을 함께 처리할 수 있는 모델로 평가합니다.
+한국사와 모든 탐구 과목은 OpenAI Astra·Sol·Terra와 Anthropic Fable·Opus·Sonnet·Haiku를 공통으로 평가합니다. 영어는 문제 이미지와 공식 듣기 음원을 함께 처리할 수 있는 모델로 평가합니다.
 
 4교시는 공식 자료 준비와 모델 평가를 병렬로 진행합니다. 준비가 끝난 과목부터 평가하고, 결과가 저장되면 리더보드에 반영합니다.
 

@@ -15,7 +15,7 @@ ROOT = Path(__file__).resolve().parent
 ENGLISH_MODELS = ('google/gemini-3.8-flash', 'qwen/qwen3.8-omni-flash',
                   'xiaomi/mimo-v2.6-flash', 'meta/muse-ember')
 COMMON_MODELS = ('gpt-6.2-astra', 'gpt-6.2-sol', 'gpt-6.1-terra',
-                 'claude-fable-5-2', 'claude-opus-5-5', 'claude-sonnet-5-5',
+                 'claude-fable-5-2', 'claude-opus-5-5', 'claude-sonnet-5-5', 'claude-haiku-5-5',
                  'google/gemini-4-hydrogen', 'google/gemma-4-31b-it')
 EXTRA_MODELS = {
     'social': ('qwen/qwen3.8-flash',),
