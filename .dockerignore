@@ -7,3 +7,5 @@
 !native_models.py
 !result_store.py
 !public-leaderboard.json
+!static/
+!static/suneung-cat-og.jpg

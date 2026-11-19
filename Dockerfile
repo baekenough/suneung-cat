@@ -12,7 +12,26 @@ import streamlit
 # The deployed theme uses system fonts. Remove Streamlit's default startup font.
 index = Path(streamlit.__file__).parent / 'static' / 'index.html'
 html = index.read_text(encoding='utf-8')
-html = html.replace('<title>Streamlit</title>', '<title>수능냥이 · 2027학년도 수능 풀이 모델 리더보드</title>')
+title = '수능냥이 · 2027학년도 수능 풀이 모델 리더보드'
+description = 'AI 모델의 2027학년도 수능 국어·수학 점수와 소요시간을 비교합니다.'
+site = 'https://suneung-cat.vercel.app/'
+html = html.replace('<html lang="en">', '<html lang="ko">')
+html = html.replace('<title>Streamlit</title>', f'<title>{title}</title>')
+preview = f'''<meta name="description" content="{description}">
+    <meta property="og:type" content="website">
+    <meta property="og:locale" content="ko_KR">
+    <meta property="og:site_name" content="수능냥이">
+    <meta property="og:title" content="{title}">
+    <meta property="og:description" content="{description}">
+    <meta property="og:url" content="{site}">
+    <meta property="og:image" content="{site}app/static/suneung-cat-og.jpg">
+    <meta property="og:image:type" content="image/jpeg">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta property="og:image:alt" content="수능냥이 제목과 수능 답안지 앞에 앉은 고양이">
+    <meta name="twitter:card" content="summary_large_image">
+  </head>'''
+html = html.replace('</head>', preview, 1)
 source_sans_preload = r'<link\s+rel="preload"\s+href="\./static/media/SourceSansVF-Upright\.[^"]+\.woff2"[^>]*>'
 html = re.sub(source_sans_preload, '', html)
 for href in re.findall(r'href="(\./static/css/index\.[^"]+\.css)"', html):
@@ -27,6 +46,7 @@ PY
 COPY . .
 ENV STREAMLIT_SERVER_HEADLESS=true \
     STREAMLIT_SERVER_ADDRESS=0.0.0.0 \
+    STREAMLIT_SERVER_ENABLE_STATIC_SERVING=true \
     STREAMLIT_BROWSER_GATHER_USAGE_STATS=false \
     CSAT_LEADERBOARD_FILE=/app/public-leaderboard.json
 EXPOSE 80
