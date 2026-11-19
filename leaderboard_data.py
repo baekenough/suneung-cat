@@ -71,7 +71,8 @@ class BlobLeaderboard:
 
     def read(self):
         with self.lock:
-            if time.monotonic() < self.next_check:
+            started = time.monotonic()
+            if started < self.next_check:
                 return self.data
             headers = {'Authorization': f'Bearer {self.token}'}
             if self.etag:
@@ -85,7 +86,8 @@ class BlobLeaderboard:
                     error.close()
                 if self.data is None:
                     raise
-            self.next_check = time.monotonic() + REFRESH_SECONDS
+            # Share concurrent reads without skipping the next scheduled poll.
+            self.next_check = started + REFRESH_SECONDS * 0.75
             return self.data
 
 
