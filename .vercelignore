@@ -1,0 +1,15 @@
+.env
+.env.*
+.venv/
+.git/
+.vercel/
+node_modules/
+__pycache__/
+subjects/
+answer_sheets/
+output/
+*.sqlite*
+*.db*
+*.pem
+*.key
+.streamlit/secrets.toml

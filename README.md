@@ -42,7 +42,17 @@ cp .env.example .env
 
 두 평가 명령에서 `--subject korean`과 `--subject math`를 바꿔 다른 과목을 실행할 수 있습니다. 같은 명령으로 재실행하면 성공한 답안을 재사용합니다. `--recover-effort low`는 이전에 실패한 문항에 적용됩니다. 기본 추론 설정은 `medium`이며 온도 지정을 지원하는 호출에는 `0`을 설정합니다. 출력 한도에 도달하면 최대 32,768토큰까지 늘려 재시도합니다. 사용한 설정과 소요시간은 문항 응답에 기록합니다.
 
-대시보드는 [국어](http://127.0.0.1:8501/?subject=korean)와 [수학](http://127.0.0.1:8501/?subject=math) 선택을 주소에 기록합니다. 홀수형·짝수형과 선택과목별 100점 원점수를 평균해 순위를 매깁니다. 소요시간은 첫 요청부터 마지막 채점 응답까지입니다. 결과는 문항별 체크포인트, `leaderboard.md`, `results.json`, SQLite의 `output/results.sqlite`에 기록합니다.
+대시보드는 [국어](http://127.0.0.1:8501/?subject=korean)와 [수학](http://127.0.0.1:8501/?subject=math) 선택을 주소에 기록합니다. 홀수형·짝수형과 선택과목별 100점 원점수를 평균해 순위를 매깁니다. 동점이면 첫 요청부터 마지막 채점 응답까지의 소요시간이 짧은 모델을 앞에 둡니다. 결과는 문항별 체크포인트, `leaderboard.md`, `results.json`, SQLite의 `output/results.sqlite`에 기록합니다.
+
+## 공개 리더보드
+
+[Vercel 리더보드](https://suneung-cat.vercel.app)는 동일한 Streamlit 화면을 컨테이너로 실행합니다. 공개 화면에 필요한 점수, 순위, 진행률, 소요시간만 Vercel의 비공개 Blob에 저장합니다. 모델 API 키와 시험 원본, 정답표, 문항별 응답 및 SQLite는 평가 환경에 보관합니다.
+
+Vercel 프로젝트에는 Blob의 `leaderboard.json` 주소를 `CSAT_LEADERBOARD_URL`로 설정합니다. 연결된 스토어의 `BLOB_READ_WRITE_TOKEN`을 `.env.local` 또는 환경 변수로 받은 뒤 평가하는 동안 다음 명령을 실행하면 집계가 바뀔 때마다 공개 리더보드에 반영됩니다.
+
+```bash
+.venv/bin/python leaderboard_data.py --publish --watch
+```
 
 ## 2026학년도 영어 준비
 

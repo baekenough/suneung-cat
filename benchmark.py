@@ -285,9 +285,17 @@ def elapsed_seconds(run, solved):
 def format_duration(seconds):
     if seconds is None:
         return '–'
-    minutes, remainder = divmod(round(seconds), 60)
+    minutes, millis = divmod(round(seconds * 1000), 60_000)
     hours, minutes = divmod(minutes, 60)
-    return (f'{hours}시간 ' if hours else '') + (f'{minutes}분 ' if minutes or hours else '') + f'{remainder}초'
+    return ((f'{hours}시간 ' if hours else '') + (f'{minutes}분 ' if minutes or hours else '')
+            + f'{millis / 1000:.3f}초')
+
+
+def ranking_key(model):
+    score = model['mean_score']
+    elapsed = model['elapsed_seconds']
+    return (-score if score is not None else float('inf'),
+            elapsed if elapsed is not None else float('inf'))
 
 
 def summarize(directories, data, answers, config):
@@ -325,11 +333,10 @@ def summarize(directories, data, answers, config):
                                   for field in ('prompt_tokens', 'completion_tokens', 'total_tokens')},
                         'reasoning_tokens': sum(r['usage'].get('completion_tokens_details', {}).get('reasoning_tokens', 0)
                                                 for r in solved), 'items': responses})
-    results.sort(key=lambda r: (r['mean_score'] is None, -(r['mean_score'] or 0), r['model']))
-    ordered_scores = sorted({r['mean_score'] for r in results if r['mean_score'] is not None}, reverse=True)
+    results.sort(key=lambda r: (*ranking_key(r), r['model']))
+    ranks = {}
     for r in results:
-        r['rank'] = ordered_scores.index(r['mean_score']) + 1 if len(ordered_scores) and sum(
-            x['mean_score'] is not None for x in results) >= 2 and r['mean_score'] is not None else None
+        r['rank'] = ranks.setdefault(ranking_key(r), len(ranks) + 1) if r['mean_score'] is not None else None
     summary = {'year': data['year'], 'question_sha256': config['questions_sha256'],
                'answer_pdf_sha256': config['answer_pdf_sha256'], 'settings': config['settings'], 'output_budget_on_length': [4096, 8192, 16384, 32768],
                'models': results}
@@ -348,7 +355,8 @@ def report(output, directories, data, answers, config):
                          '공통 문항은 형별로 한 번씩 풀고 각 선택과목 점수에 공통으로 반영합니다.')
     lines = [f'# {data["year"]}학년도 수능 {subject} 모델 평가', '',
              f'각 요청에서 문항 하나를 풉니다. 기본 추론 설정 `{config["settings"]["reasoning_effort"]}`, '
-             f'온도 지정을 지원하는 요청에서는 `{config["settings"]["temperature"]}`을 사용합니다. ' + score_description, '',
+             f'온도 지정을 지원하는 요청에서는 `{config["settings"]["temperature"]}`을 사용합니다. '
+             + score_description + ' 동점에서는 소요시간이 짧은 모델을 앞에 둡니다.', '',
              '| 순위 | 모델 | 채점 완료 | 정답 | 원점수 평균 | 소요시간 |', '| --- | --- | ---: | ---: | ---: | ---: |']
     for r in results:
         full = r['overall']

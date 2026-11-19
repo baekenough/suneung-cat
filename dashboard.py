@@ -1,14 +1,20 @@
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from html import escape
+import base64
+import os
+from urllib.error import URLError
 
 import streamlit as st
 
-from benchmark import FORMS, ROOT, comparison_config, format_duration, read_json, run_directories, summarize
+from benchmark import format_duration
+from leaderboard_data import hosted_leaderboard, local_leaderboard
 
 TITLE = '2027학년도 수능 풀이 모델 리더보드'
 SUBJECTS = {'korean': '국어', 'math': '수학'}
-KOREAN_CASES = [('홀수형 화법과 작문', '홀수 화작'), ('홀수형 언어와 매체', '홀수 언매'),
-                ('짝수형 화법과 작문', '짝수 화작'), ('짝수형 언어와 매체', '짝수 언매')]
+SHORT_COURSES = {'화법과 작문': '화작', '언어와 매체': '언매'}
+PROVIDERS = {'all': '전체', 'openai': 'OpenAI', 'anthropic': 'Anthropic',
+             'gemini': 'Gemini', 'openrouter': 'OpenRouter', 'upstage': 'Upstage'}
+KST = timezone(timedelta(hours=9))
 
 st.set_page_config(page_title=TITLE, layout='wide')
 st.html('''
@@ -27,6 +33,9 @@ st.html('''
 .st-key-subject label:has(input:checked) { background: #eaf5ff; border-color: #0972d3; color: #033160; }
 .st-key-subject label:has(input:checked) > div:first-child { background-color: #0972d3; border-color: #0972d3; }
 .st-key-subject label:focus-within { outline: 2px solid #0972d3; outline-offset: 2px; }
+.st-key-provider button { background: #fff; color: #20364d; border-color: #c4ccd7; font-size: .84rem; }
+.st-key-provider button[aria-checked="true"], .st-key-provider button[aria-pressed="true"] {
+    background: #eaf5ff; color: #064a88; border-color: #0972d3; }
 .exam-board { border: 1px solid #d5dae1; background: #fff; overflow: hidden; }
 .exam-board__header { padding: 16px 20px; display: flex; flex-wrap: wrap; gap: 8px 16px;
                       justify-content: space-between; align-items: baseline; }
@@ -50,6 +59,17 @@ st.html('''
 .exam-board progress { display: block; width: 100%; height: 5px; accent-color: #0972d3; margin-top: 6px; }
 .exam-board .route { display: block; color: #536678; font: 400 .73rem system-ui, sans-serif; margin-top: 2px; }
 .exam-note { color: #536678; font-size: .82rem; margin: .75rem 0 0; }
+.exam-byline { color: #46566b;
+               display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center;
+               font-size: .84rem; gap: 8px 16px; }
+.exam-byline p { margin: 0; }
+.exam-byline nav { display: flex; flex-wrap: wrap; align-items: center; gap: 7px; }
+.exam-byline nav a { display: inline-flex; align-items: center; justify-content: center;
+                     width: 42px; height: 42px; border: 1px solid #d5dae1; border-radius: 8px;
+                     background: #fff; color: #182536; text-decoration: none; }
+.exam-byline nav a:hover { background: #eaf5ff; border-color: #87b6e3; }
+.exam-byline a:focus-visible { outline: 2px solid #0972d3; outline-offset: 2px; }
+.exam-byline img { width: 20px; height: 20px; flex-shrink: 0; }
 @media (max-width: 810px) {
     .stMainBlockContainer { padding: 1.25rem .85rem; }
     .exam-header { padding: 19px 18px; }
@@ -74,8 +94,37 @@ st.html('''
 }
 </style>
 ''')
+# LinkedIn and GitHub marks follow Bootstrap Icons vector paths.
+def brand_icon(svg):
+    encoded = base64.b64encode(svg.encode()).decode()
+    return f'<img alt="" src="data:image/svg+xml;base64,{encoded}">'
+
+linkedin_icon = brand_icon('''<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="#0a66c2"><path d="M0 1.146C0 .513.526 0 1.175 0h13.65C15.474 0 16 .513 16 1.146v13.708c0 .633-.526 1.146-1.175 1.146H1.175C.526 16 0 15.487 0 14.854zm4.943 12.248V6.169H2.542v7.225zm-1.2-8.212c.837 0 1.358-.554 1.358-1.248-.015-.709-.52-1.248-1.342-1.248S2.4 3.226 2.4 3.934c0 .694.521 1.248 1.327 1.248zm4.908 8.212V9.359c0-.216.016-.432.08-.586.173-.431.568-.878 1.232-.878.869 0 1.216.662 1.216 1.634v3.865h2.401V9.25c0-2.22-1.184-3.252-2.764-3.252-1.274 0-1.845.7-2.165 1.193v.025h-.016l.016-.025V6.169h-2.4c.03.678 0 7.225 0 7.225z"/></svg>''')
+gmail_icon = brand_icon('''<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 36">
+<path fill="#4285f4" d="M3.273 36h7.636V17.455L0 9.273v23.454C0 34.538 1.467 36 3.273 36"/>
+<path fill="#34a853" d="M37.091 36h7.636C46.538 36 48 34.538 48 32.727V9.273l-10.909 8.182"/>
+<path fill="#fbbc04" d="M37.091 3.273v14.182L48 9.273V4.909c0-4.046-4.619-6.354-7.855-3.927"/>
+<path fill="#ea4335" d="M10.909 17.455V3.273L24 13.091 37.091 3.273v14.182L24 27.273"/>
+<path fill="#c5221f" d="M0 4.909v4.364l10.909 8.182V3.273L7.855.982C4.619-1.445 0 .863 0 4.909"/>
+</svg>''')
+github_icon = brand_icon('''<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="#182536"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27s1.36.09 2 .27c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8"/></svg>''')
+
+st.html(f'''<aside class="exam-byline" aria-label="자료 출처 및 제작자">
+<p><strong>baekenough</strong>가 <a href="https://cdn.kice.re.kr/27dae-suneung/index.html" target="_blank"
+rel="noopener noreferrer">한국교육과정평가원 2027학년도 수능 자료</a>에서 받음</p>
+<nav aria-label="제작자 연락처">
+<a href="https://www.linkedin.com/in/%EC%83%81%EC%9D%B4-%EB%B0%B1-a8b028203/" target="_blank"
+rel="noopener noreferrer" aria-label="LinkedIn">
+{linkedin_icon}
+</a>
+<a href="mailto:baekenough@gmail.com" aria-label="Gmail" title="baekenough@gmail.com">
+{gmail_icon}</a>
+<a href="https://github.com/baekenough" target="_blank" rel="noopener noreferrer" aria-label="GitHub">
+{github_icon}
+</a></nav></aside>''')
+
 st.html(f'''<header class="exam-header"><h1>{TITLE}</h1>
-<p>홀수형·짝수형의 선택과목별 100점 원점수 평균으로 비교합니다.</p></header>''')
+<p>선택과목별 원점수 평균으로 순위를 매깁니다. 동점이면 소요시간이 짧은 모델이 앞섭니다.</p></header>''')
 
 
 def save_subject():
@@ -89,57 +138,84 @@ subject = st.radio('과목', list(SUBJECTS), key='subject', on_change=save_subje
                    format_func=SUBJECTS.__getitem__, horizontal=True, label_visibility='collapsed')
 
 
-def provider_label(endpoint):
-    if not endpoint:
-        return ''
+def save_provider():
+    st.query_params['provider'] = st.session_state.provider
+
+
+if 'provider' not in st.session_state:
+    requested_provider = st.query_params.get('provider', 'all')
+    st.session_state.provider = requested_provider if requested_provider in PROVIDERS else 'all'
+provider = st.pills('제공사', list(PROVIDERS), key='provider', on_change=save_provider, required=True,
+                    format_func=PROVIDERS.__getitem__, label_visibility='collapsed')
+
+
+def provider_group(model):
+    if model['model'].startswith('google/gemini-'):
+        return 'gemini'
+    if model['model'].startswith('upstage/'):
+        return 'upstage'
+    endpoint = model['endpoint'] or ''
     host = endpoint.split('/')[2] if '://' in endpoint else ''
-    return {'api.openai.com': 'OpenAI API', 'api.anthropic.com': 'Anthropic API',
-            'openrouter.ai': 'OpenRouter', 'api.upstage.ai': 'Upstage API'}.get(host, '')
+    return {'api.openai.com': 'openai', 'api.anthropic.com': 'anthropic',
+            'openrouter.ai': 'openrouter', 'api.upstage.ai': 'upstage'}.get(host)
+
+
+@st.cache_data(ttl=2, show_spinner=False)
+def cloud_scores():
+    return hosted_leaderboard()
 
 
 @st.fragment(run_every=2)
-def leaderboard(subject):
-    output = ROOT / 'output' / ('2027' if subject == '국어' else '2027-math')
-    dataset = output / 'questions.json'
-    if not dataset.exists() or not (output / 'answer_key.json').exists():
+def leaderboard(subject_key, selected_provider):
+    subject = SUBJECTS[subject_key]
+    try:
+        snapshot = cloud_scores() if os.environ.get('CSAT_LEADERBOARD_URL') else hosted_leaderboard()
+    except (URLError, ValueError, KeyError, TimeoutError):
+        st.warning('리더보드 데이터를 다시 불러오는 중입니다.')
+        return
+    data = snapshot.get(subject_key) if snapshot is not None else local_leaderboard(subject_key)
+    if not data:
         st.info(f'{subject} 문항을 준비 중입니다.')
         return
-    data = read_json(dataset)
-    key = read_json(output / 'answer_key.json')
-    config = comparison_config(data, key, 'medium')
-    directories = run_directories(output, config)
-    models = summarize(directories, data, key['answers'], config)['models']
+    models = data['models']
     if not models:
-        st.info(f'{subject} {len(data["questions"])}문항 준비 완료. 평가를 시작하면 진행률이 표시됩니다.')
+        st.info(f'{subject} {data["questions"]}문항 준비 완료. 평가를 시작하면 진행률이 표시됩니다.')
+        return
+    if selected_provider != 'all':
+        models = [model for model in models if provider_group(model) == selected_provider]
+    if not models:
+        st.info(f'{subject}의 {PROVIDERS[selected_provider]} 평가 결과를 준비 중입니다.')
         return
 
-    cases = KOREAN_CASES if subject == '국어' else [
-        (f'{form} {course}', f'{form[:2]} {course}')
-        for form in FORMS for course in data['electives']
-    ]
+    cases = []
+    for case in data['cases']:
+        form, course = case.split(' ', 1)
+        cases.append((case, f'{form[:2]} {SHORT_COURSES.get(course, course)}'))
     rows = []
     for model in models:
-        submitted = model['overall']['solved']
-        total = model['overall']['questions']
+        submitted = model['solved']
+        total = model['questions']
         mean = model['mean_score']
         scores = []
         for case, label in cases:
-            result = model['scores'][case]
-            value = result['points'] if result['solved'] == result['questions'] else '–'
+            points = model['scores'][case]
+            value = points if points is not None else '–'
             scores.append(f'<td class="case" data-label="{escape(label)}">{value}</td>')
         average = f'{mean:.2f}' if mean is not None else '–'
         rank = model['rank'] or '–'
         badge = 'first' if rank == 1 else ''
-        route = provider_label(model['endpoint'])
+        group = provider_group(model)
+        route = PROVIDERS.get(group, '')
+        if group in ('openai', 'anthropic') or (group == 'upstage' and not model['model'].startswith('upstage/')):
+            route += ' API'
         rows.append(f'''<tr><td class="rank"><strong class="{badge}">{rank}</strong></td>
 <td class="name">{escape(model['model'])}<small class="route">{route}</small></td>
 <td class="score" data-label="평균">{average}</td>
 <td class="progress" data-label="채점 완료">{submitted}/{total}<progress value="{submitted}" max="{total}" aria-label="채점 진행률"></progress></td>
 <td class="elapsed" data-label="소요시간">{format_duration(model['elapsed_seconds'])}</td>{''.join(scores)}</tr>''')
     headings = ''.join(f'<th scope="col">{escape(label)}</th>' for _, label in cases)
-    latest = max((p.stat().st_mtime for d in directories for p in d.glob('*.json')), default=0)
     complete = sum(model['mean_score'] is not None for model in models)
-    update = datetime.fromtimestamp(latest).strftime('%H:%M:%S')
+    update = datetime.fromtimestamp(data['updated_at'], KST).strftime('%H:%M:%S')
     st.html(f'''<section class="exam-board" aria-label="{subject} 리더보드">
 <header class="exam-board__header"><h2>{subject} 모델 순위</h2>
 <span class="exam-board__status">{complete}/{len(models)}개 모델 완료 · {update} 갱신</span></header>
@@ -150,4 +226,4 @@ def leaderboard(subject):
 <p class="exam-note">2초마다 갱신합니다. 소요시간은 첫 요청부터 마지막 채점 응답까지입니다.</p>''')
 
 
-leaderboard(SUBJECTS[subject])
+leaderboard(subject, provider)

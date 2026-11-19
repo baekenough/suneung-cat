@@ -8,6 +8,8 @@ __pycache__/
 /subjects/
 /answer_sheets/
 /output/
+/public-leaderboard.json
+/.vercel/
 *.sqlite*
 *.db
 *.db-wal
