@@ -15,6 +15,8 @@ TITLE = '2027학년도 수능 풀이 모델 리더보드'
 SHORT_COURSES = {'화법과 작문': '화작', '언어와 매체': '언매'}
 PROVIDERS = {'all': '전체', 'openai': 'OpenAI', 'anthropic': 'Anthropic',
              'gemini': 'Gemini', 'openrouter': 'OpenRouter', 'upstage': 'Upstage'}
+FRONTIER_MODELS = {'gpt-6.2-astra', 'claude-fable-5-2', 'claude-opus-5-5',
+                   'google/gemini-4-neon', 'google/gemini-4-hydrogen', 'google/gemini-4-carbon'}
 
 st.set_page_config(page_title=f'{SERVICE_NAME} · {TITLE}', layout='wide')
 st.html('''
@@ -167,6 +169,9 @@ rel="noopener noreferrer" aria-label="LinkedIn">
                 url.searchParams.set(key, value);
             }
         }
+        if (current.get('hide_frontier') === '1') {
+            url.searchParams.set('hide_frontier', '1');
+        }
         if (typeof navigator.share === 'function') {
             try {
                 await navigator.share({ title: document.title, url: url.href });
@@ -230,6 +235,19 @@ provider = st.pills('제공사', list(PROVIDERS), key='provider', on_change=save
                     format_func=PROVIDERS.__getitem__, label_visibility='collapsed')
 
 
+def save_frontier_visibility():
+    if st.session_state.hide_frontier:
+        st.query_params['hide_frontier'] = '1'
+    else:
+        st.query_params.pop('hide_frontier', None)
+
+
+if 'hide_frontier' not in st.session_state:
+    st.session_state.hide_frontier = st.query_params.get('hide_frontier') == '1'
+hide_frontier = st.checkbox('프론티어 모델 숨기기', key='hide_frontier', on_change=save_frontier_visibility,
+                            help='숨기는 모델 · ' + ', '.join(sorted(FRONTIER_MODELS)))
+
+
 def provider_group(model):
     if model['model'].startswith('google/gemini-'):
         return 'gemini'
@@ -255,7 +273,7 @@ def board_data(subject_key):
     return snapshot.get(subject_key) if snapshot is not None else local_leaderboard(subject_key)
 
 
-def leaderboard(data, subject_key, selected_provider):
+def leaderboard(data, subject_key, selected_provider, hide_frontier):
     subject = LABELS[subject_key]
     if data is False:
         st.warning('리더보드 데이터를 다시 불러오는 중입니다.')
@@ -280,6 +298,11 @@ def leaderboard(data, subject_key, selected_provider):
         st.info(f'{provider_name}의 영어 평가 결과가 없습니다.' if subject_key == 'english'
                 else f'{subject}의 {provider_name} 평가 결과를 준비 중입니다.')
         return
+    if hide_frontier:
+        models = [model for model in models if model['model'] not in FRONTIER_MODELS]
+        if not models:
+            st.info('이 필터에서 표시할 모델이 없습니다. 프론티어 모델 숨기기를 해제하면 결과를 볼 수 있습니다.')
+            return
 
     cases = []
     for case in data['cases']:
@@ -318,7 +341,8 @@ def leaderboard(data, subject_key, selected_provider):
 <th scope="col">평균 / {data.get('max_score', 100)}</th><th class="elapsed" scope="col">소요시간</th>{headings}</tr></thead>
 <tbody>{''.join(rows)}</tbody></table></div></section>
 <p class="exam-note">2초마다 갱신합니다. 소요시간은 첫 요청부터 마지막 채점 응답까지입니다.</p>''')
-    if analysis := data.get('analysis'):
+    includes_hidden_models = hide_frontier and any(row['model'] in FRONTIER_MODELS for row in data['models'])
+    if not includes_hidden_models and (analysis := data.get('analysis')):
         with st.expander('채점 분석'):
             st.markdown('\n'.join(f'- {line}' for line in analysis_markdown(analysis)))
 
@@ -330,5 +354,5 @@ def watch_board(subject_key, displayed_data):
 
 
 data = board_data(dataset)
-leaderboard(data, dataset, provider)
+leaderboard(data, dataset, provider, hide_frontier)
 watch_board(dataset, data)
