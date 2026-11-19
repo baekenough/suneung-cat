@@ -27,10 +27,11 @@ def key_forms(key):
             if block['type'] != 'table':
                 continue
             page = block['pageNumber']
-            rows = [' '.join(cell['text'].strip() for cell in row) for row in block['table']['cells']]
+            # Some PDFs put the question number on its own Kordoc row.
+            text = ' '.join(cell['text'].strip() for row in block['table']['cells'] for cell in row)
             values = tables_by_page.setdefault(page, [])
             values.extend((int(num), CHOICES.index(answer) + 1, int(points))
-                          for row in rows for num, answer, points in ANSWER.findall(row))
+                          for num, answer, points in ANSWER.findall(text))
         for page, triples in tables_by_page.items():
             if not triples:
                 continue

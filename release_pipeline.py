@@ -57,9 +57,21 @@ def evaluate_dataset(dataset):
 
 def evaluate_fourth(datasets):
     with ThreadPoolExecutor(max_workers=3) as preparation, ThreadPoolExecutor(max_workers=3) as evaluation:
-        pending = {preparation.submit(prepare_dataset, dataset): dataset for dataset in datasets}
-        scheduled = [evaluation.submit(evaluate_dataset, pending[future])
-                     for future in as_completed(pending) if future.result()]
+        remaining = list(datasets)
+        scheduled = []
+        for attempt in range(2):
+            if not remaining:
+                break
+            if attempt:
+                print(f'4교시 · 자료 준비 실패 {len(remaining)}과목 다시 확인', flush=True)
+            pending = {preparation.submit(prepare_dataset, dataset): dataset for dataset in remaining}
+            remaining = []
+            for future in as_completed(pending):
+                dataset = pending[future]
+                if future.result():
+                    scheduled.append(evaluation.submit(evaluate_dataset, dataset))
+                else:
+                    remaining.append(dataset)
         return sum(future.result() for future in as_completed(scheduled))
 
 
@@ -68,6 +80,8 @@ def main():
     parser.add_argument('wave', choices=('english', 'fourth'))
     parser.add_argument('--subject', choices=RELEASE_ASSETS, action='append',
                         help='4교시에서 특정 선택과목만 재개')
+    parser.add_argument('--wait-for-active-wave', action='store_true',
+                        help='같은 공개 작업이 진행 중이면 끝난 뒤 재개')
     args = parser.parse_args()
     if args.subject and args.wave != 'fourth':
         parser.error('--subject는 4교시 재개에 사용하세요.')
@@ -77,7 +91,10 @@ def main():
         try:
             fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
         except BlockingIOError:
-            raise SystemExit(f'{args.wave} 공개 작업이 이미 실행 중입니다.')
+            if not args.wait_for_active_wave:
+                raise SystemExit(f'{args.wave} 공개 작업이 이미 실행 중입니다.')
+            print(f'{args.wave} · 진행 중인 공개 작업이 끝나면 재개합니다.', flush=True)
+            fcntl.flock(lock, fcntl.LOCK_EX)
         if args.wave == 'english':
             await_release(ENGLISH_RELEASE, '2027학년도 영어', True)
             return int(not (prepare_dataset('english') and evaluate_dataset('english')))
