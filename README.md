@@ -54,12 +54,18 @@ Vercel 프로젝트에는 Blob의 `leaderboard.json` 주소를 `CSAT_LEADERBOARD
 .venv/bin/python leaderboard_data.py --publish --watch
 ```
 
-## 2026학년도 영어 준비
+## 영어 준비
 
 `subjects/`에 영어 문제지 PDF와 공식 듣기 음원 ZIP을, `answer_sheets/`에 영어 정답표 PDF를 둡니다. `prepare_english.py`는 문항 90개와 듣기용 MP3 16개를 준비합니다. 16–17번은 공통 음원에 각 문항 이미지를 함께 보냅니다. 오디오와 이미지 입력을 확인한 OpenRouter 모델은 `google/gemini-3.8-flash`, `meta/muse-ember`, `qwen/qwen3.8-omni-flash`, `xiaomi/mimo-v2.6-flash`입니다. Streamlit 화면에는 국어와 수학을 표시합니다.
 
 ```bash
 .venv/bin/python prepare_english.py --year 2026
+```
+
+2027학년도 공식 자료는 평가원 공개 시각인 2026년 11월 19일 17:04 KST부터 내려받아 문항과 음원을 연결할 수 있습니다. 이미 준비된 동일 과목 원본은 재사용합니다. [평가원 공개 페이지](https://cdn.kice.re.kr/27dae-suneung/index.html)
+
+```bash
+.venv/bin/python prepare_english.py --year 2027 --download --wait-for-release
 ```
 
 [Kordoc](https://github.com/chrisryugj/kordoc) · [OpenAI Responses API](https://developers.openai.com/api/reference/resources/responses/methods/create) · [Anthropic Messages API](https://platform.claude.com/docs/en/api/messages/create) · [OpenRouter 오디오 입력](https://openrouter.ai/docs/guides/overview/multimodal/audio)

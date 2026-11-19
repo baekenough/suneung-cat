@@ -63,13 +63,17 @@ st.html('''
                display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center;
                font-size: .84rem; gap: 8px 16px; }
 .exam-byline p { margin: 0; }
-.exam-byline nav { display: flex; flex-wrap: wrap; align-items: center; gap: 7px; }
-.exam-byline nav a { display: inline-flex; align-items: center; justify-content: center;
-                     width: 42px; height: 42px; border: 1px solid #d5dae1; border-radius: 8px;
-                     background: #fff; color: #182536; text-decoration: none; }
-.exam-byline nav a:hover { background: #eaf5ff; border-color: #87b6e3; }
-.exam-byline a:focus-visible { outline: 2px solid #0972d3; outline-offset: 2px; }
+.exam-byline nav { position: relative; display: flex; flex-wrap: wrap; align-items: center; gap: 7px; }
+.exam-byline nav :is(a, button) { display: inline-flex; align-items: center; justify-content: center;
+                                 width: 42px; height: 42px; border: 1px solid #d5dae1; border-radius: 8px;
+                                 background: #fff; color: #182536; text-decoration: none; }
+.exam-byline button { cursor: pointer; padding: 0; }
+.exam-byline nav :is(a, button):hover { background: #eaf5ff; border-color: #87b6e3; }
+.exam-byline :is(a, button):focus-visible { outline: 2px solid #0972d3; outline-offset: 2px; }
 .exam-byline img { width: 20px; height: 20px; flex-shrink: 0; }
+.exam-share-status { position: absolute; z-index: 1; inset-inline-end: 0; top: calc(100% + 5px);
+                     white-space: nowrap; pointer-events: none; }
+.exam-share-status:not(:empty) { padding: 4px 9px; border-radius: 5px; background: #182536; color: #fff; }
 @media (max-width: 810px) {
     .stMainBlockContainer { padding: 1.25rem .85rem; }
     .exam-header { padding: 19px 18px; }
@@ -95,24 +99,30 @@ st.html('''
 </style>
 ''')
 # LinkedIn and GitHub marks follow Bootstrap Icons vector paths.
-def brand_icon(svg):
+def icon_image(svg):
     encoded = base64.b64encode(svg.encode()).decode()
     return f'<img alt="" src="data:image/svg+xml;base64,{encoded}">'
 
-linkedin_icon = brand_icon('''<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="#0a66c2"><path d="M0 1.146C0 .513.526 0 1.175 0h13.65C15.474 0 16 .513 16 1.146v13.708c0 .633-.526 1.146-1.175 1.146H1.175C.526 16 0 15.487 0 14.854zm4.943 12.248V6.169H2.542v7.225zm-1.2-8.212c.837 0 1.358-.554 1.358-1.248-.015-.709-.52-1.248-1.342-1.248S2.4 3.226 2.4 3.934c0 .694.521 1.248 1.327 1.248zm4.908 8.212V9.359c0-.216.016-.432.08-.586.173-.431.568-.878 1.232-.878.869 0 1.216.662 1.216 1.634v3.865h2.401V9.25c0-2.22-1.184-3.252-2.764-3.252-1.274 0-1.845.7-2.165 1.193v.025h-.016l.016-.025V6.169h-2.4c.03.678 0 7.225 0 7.225z"/></svg>''')
-gmail_icon = brand_icon('''<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 36">
+share_icon = icon_image('''<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"
+fill="none" stroke="#182536" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+<path d="M8 7l4-4 4 4m-4-4v12m-5-5H5a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7a2 2 0 0 0-2-2h-2"/>
+</svg>''')
+linkedin_icon = icon_image('''<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="#0a66c2"><path d="M0 1.146C0 .513.526 0 1.175 0h13.65C15.474 0 16 .513 16 1.146v13.708c0 .633-.526 1.146-1.175 1.146H1.175C.526 16 0 15.487 0 14.854zm4.943 12.248V6.169H2.542v7.225zm-1.2-8.212c.837 0 1.358-.554 1.358-1.248-.015-.709-.52-1.248-1.342-1.248S2.4 3.226 2.4 3.934c0 .694.521 1.248 1.327 1.248zm4.908 8.212V9.359c0-.216.016-.432.08-.586.173-.431.568-.878 1.232-.878.869 0 1.216.662 1.216 1.634v3.865h2.401V9.25c0-2.22-1.184-3.252-2.764-3.252-1.274 0-1.845.7-2.165 1.193v.025h-.016l.016-.025V6.169h-2.4c.03.678 0 7.225 0 7.225z"/></svg>''')
+gmail_icon = icon_image('''<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 36">
 <path fill="#4285f4" d="M3.273 36h7.636V17.455L0 9.273v23.454C0 34.538 1.467 36 3.273 36"/>
 <path fill="#34a853" d="M37.091 36h7.636C46.538 36 48 34.538 48 32.727V9.273l-10.909 8.182"/>
 <path fill="#fbbc04" d="M37.091 3.273v14.182L48 9.273V4.909c0-4.046-4.619-6.354-7.855-3.927"/>
 <path fill="#ea4335" d="M10.909 17.455V3.273L24 13.091 37.091 3.273v14.182L24 27.273"/>
 <path fill="#c5221f" d="M0 4.909v4.364l10.909 8.182V3.273L7.855.982C4.619-1.445 0 .863 0 4.909"/>
 </svg>''')
-github_icon = brand_icon('''<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="#182536"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27s1.36.09 2 .27c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8"/></svg>''')
+github_icon = icon_image('''<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="#182536"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27s1.36.09 2 .27c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8"/></svg>''')
 
 st.html(f'''<aside class="exam-byline" aria-label="자료 출처 및 제작자">
 <p><strong>baekenough</strong>가 <a href="https://cdn.kice.re.kr/27dae-suneung/index.html" target="_blank"
 rel="noopener noreferrer">한국교육과정평가원 2027학년도 수능 자료</a>에서 받음</p>
 <nav aria-label="제작자 연락처">
+<button id="exam-share" type="button" aria-label="URL 공유하기" title="URL 공유하기"
+data-subject="{' '.join(SUBJECTS)}" data-provider="{' '.join(PROVIDERS)}">{share_icon}</button>
 <a href="https://www.linkedin.com/in/%EC%83%81%EC%9D%B4-%EB%B0%B1-a8b028203/" target="_blank"
 rel="noopener noreferrer" aria-label="LinkedIn">
 {linkedin_icon}
@@ -121,7 +131,41 @@ rel="noopener noreferrer" aria-label="LinkedIn">
 {gmail_icon}</a>
 <a href="https://github.com/baekenough" target="_blank" rel="noopener noreferrer" aria-label="GitHub">
 {github_icon}
-</a></nav></aside>''')
+</a><span class="exam-share-status" role="status"></span></nav></aside>''' + '''
+<script>
+(() => {
+    const button = document.getElementById('exam-share');
+    const status = button.parentElement.querySelector('.exam-share-status');
+    let statusTimer;
+    button.onclick = async () => {
+        const url = new URL('https://suneung-cat.vercel.app/');
+        const current = new URLSearchParams(window.location.search);
+        for (const key of ['subject', 'provider']) {
+            const value = current.get(key);
+            if (button.dataset[key].split(' ').includes(value)) {
+                url.searchParams.set(key, value);
+            }
+        }
+        if (typeof navigator.share === 'function') {
+            try {
+                await navigator.share({ title: document.title, url: url.href });
+                return;
+            } catch (error) {
+                if (error.name === 'AbortError') return;
+            }
+        }
+        try {
+            await navigator.clipboard.writeText(url.href);
+            status.textContent = '링크를 복사했습니다.';
+            clearTimeout(statusTimer);
+            statusTimer = setTimeout(() => { status.textContent = ''; }, 2500);
+        } catch {
+            window.prompt('공유할 URL을 복사하세요.', url.href);
+        }
+    };
+})();
+</script>
+''', unsafe_allow_javascript=True)
 
 st.html(f'''<header class="exam-header"><h1>{TITLE}</h1>
 <p>선택과목별 원점수 평균으로 순위를 매깁니다. 동점이면 소요시간이 짧은 모델이 앞섭니다.</p></header>''')

@@ -1,11 +1,17 @@
 #!/usr/bin/env python3
 """Prepare English CSAT images, official audio tracks and scoring keys."""
 import argparse
+from datetime import datetime, timedelta, timezone
 import re
+from shutil import copyfileobj
+from tempfile import TemporaryDirectory
+import time
 import unicodedata
 from pathlib import Path
 from subprocess import run
-from zipfile import ZipFile
+from urllib.error import URLError
+from urllib.request import urlopen
+from zipfile import BadZipFile, ZipFile
 
 import fitz
 
@@ -19,14 +25,75 @@ GROUP_PROMPTS = {
     36: 'Choose the correct order of the paragraphs following the given paragraph.',
     38: 'Choose where the given sentence best fits in the passage.',
 }
+KICE_RELEASE = datetime(2026, 11, 19, 17, 4, tzinfo=timezone(timedelta(hours=9)))
+KICE_CDNS = ('https://cdn.kice.re.kr/27dae-suneung/', 'https://cdn2.kice.re.kr/27dae-suneung/')
+KICE_ENGLISH = (
+    ('27DaeSuneung_3.pdf', 'subjects', '_문제지', 'pdf'),
+    ('27DaeSuneung_3a.pdf', 'answer_sheets', '_정답표', 'pdf'),
+    ('27DaeSuneung_3.zip', 'subjects', '듣기평가음원', 'zip'),
+    ('27DaeSuneung_31.pdf', 'subjects', '듣기평가대본', 'pdf'),
+)
 
 
 def source(folder, year, phrase, suffix):
     candidates = [p for p in (ROOT / folder).glob(f'{year}_*.{suffix}')
                   if '영어영역' + phrase in unicodedata.normalize('NFC', p.name)]
-    if len(candidates) != 1:
+    if not candidates:
+        raise FileNotFoundError(f'{year} {folder} 영어영역{phrase}.{suffix} 파일이 필요합니다.')
+    if len(candidates) > 1:
         raise ValueError(f'{year} {folder} 영어영역{phrase}.{suffix} 파일을 하나씩 준비하세요.')
     return candidates[0]
+
+
+def download_2027(wait):
+    remaining = (KICE_RELEASE - datetime.now(KICE_RELEASE.tzinfo)).total_seconds()
+    if remaining > 0:
+        message = f'평가원 2027학년도 영어 공개 예정 {KICE_RELEASE:%Y-%m-%d %H:%M} KST'
+        if not wait:
+            raise SystemExit(message)
+        print(f'{message} · 공개 시각까지 대기 중', flush=True)
+        while remaining > 0:
+            time.sleep(min(60, remaining))
+            remaining = (KICE_RELEASE - datetime.now(KICE_RELEASE.tzinfo)).total_seconds()
+
+    for remote_name, folder, phrase, suffix in KICE_ENGLISH:
+        try:
+            source(folder, 2027, phrase, suffix)
+            continue
+        except FileNotFoundError:
+            pass
+        destination = ROOT / folder / f'2027_영어영역{phrase}.{suffix}'
+        destination.parent.mkdir(exist_ok=True)
+        with TemporaryDirectory(prefix='.kice-', dir=destination.parent) as temporary:
+            staged = Path(temporary) / destination.name
+            for attempt in range(6):
+                for base in KICE_CDNS:
+                    try:
+                        with urlopen(base + remote_name, timeout=45) as response, staged.open('wb') as target:
+                            copyfileobj(response, target)
+                        if suffix == 'pdf':
+                            with fitz.open(staged, filetype='pdf') as document:
+                                if not len(document):
+                                    raise ValueError('빈 PDF')
+                        else:
+                            with ZipFile(staged) as archive:
+                                if archive.testzip():
+                                    raise ValueError('손상된 음원 ZIP')
+                    except (URLError, TimeoutError, OSError, ValueError, RuntimeError, BadZipFile) as error:
+                        last_error = error
+                        continue
+                    try:
+                        destination.hardlink_to(staged)
+                    except FileExistsError:
+                        pass
+                    break
+                else:
+                    if attempt == 5:
+                        raise RuntimeError(f'평가원 파일 {remote_name} 다운로드 실패') from last_error
+                    time.sleep(10)
+                    continue
+                break
+        print(f'공식 자료 확인 · {destination.relative_to(ROOT)}', flush=True)
 
 
 def audio_files(archive, output):
@@ -35,20 +102,20 @@ def audio_files(archive, output):
     with ZipFile(archive) as z:
         members = {}
         for entry in z.infolist():
-            match = re.match(r'^(\d{2})_', Path(entry.filename).name)
-            if match and entry.filename.lower().endswith('.mp3') and int(match[1]) in range(1, 17):
+            match = re.match(r'^\s*(\d{1,2})(?=$|[_ .\-(번~～])', Path(entry.filename).stem)
+            if match and entry.filename.lower().endswith('.mp3') and int(match[1]) in range(1, 18):
                 number = int(match[1])
                 if number in members:
                     raise ValueError(f'영어 음원 트랙 중복: {number}')
                 members[number] = entry
-        if set(members) != set(range(1, 17)):
-            raise ValueError('영어 공식 음원 01~16 트랙이 필요합니다.')
+        if sorted(members) not in (list(range(1, 17)), list(range(1, 18))):
+            raise ValueError('영어 공식 음원에 01~16번 트랙이 필요합니다.')
         for number, entry in members.items():
             dest = folder / f'{number:02}.mp3'
             run(['ffmpeg', '-nostdin', '-v', 'error', '-y', '-i', 'pipe:0', '-map', '0:a:0',
                  '-ac', '1', '-ar', '24000', '-codec:a', 'libmp3lame', '-b:a', '48k', str(dest)],
                 input=z.read(entry), check=True)
-    return {n: f'audio/{min(n, 16):02}.mp3' for n in range(1, 18)}
+    return {n: f'audio/{n if n in members else 16:02}.mp3' for n in range(1, 18)}
 
 
 def english_key(pdf):
@@ -97,9 +164,18 @@ def page_areas(page):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--year', type=int, default=2026)
+    parser.add_argument('--output', type=Path, default=ROOT / 'output')
+    parser.add_argument('--download', action='store_true', help='2027학년도 영어 자료를 평가원에서 받기')
+    parser.add_argument('--wait-for-release', action='store_true', help='공식 공개 시각까지 대기 후 진행')
     args = parser.parse_args()
     year = args.year
-    output = ROOT / 'output' / f'{year}-english'
+    if args.wait_for_release and not args.download:
+        parser.error('--wait-for-release는 --download와 함께 사용하세요.')
+    if args.download:
+        if year != 2027:
+            parser.error('--download는 2027학년도 영어를 지원합니다.')
+        download_2027(args.wait_for_release)
+    output = args.output / f'{year}-english'
     paper = source('subjects', year, '_문제지', 'pdf')
     key_file = source('answer_sheets', year, '_정답표', 'pdf')
     audio_zip = source('subjects', year, '듣기평가음원', 'zip')
