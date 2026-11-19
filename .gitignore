@@ -1,0 +1,17 @@
+.env
+.env.*
+!.env.example
+.venv/
+node_modules/
+__pycache__/
+.DS_Store
+/subjects/
+/answer_sheets/
+/output/
+*.sqlite*
+*.db
+*.db-wal
+*.db-shm
+*.pem
+*.key
+.streamlit/secrets.toml

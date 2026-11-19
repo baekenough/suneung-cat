@@ -1,0 +1,6 @@
+{
+  "name": "suneung-benchmark",
+  "private": true,
+  "engines": { "node": ">=20" },
+  "dependencies": { "kordoc": "4.25.2" }
+}
