@@ -9,6 +9,7 @@ import streamlit as st
 from benchmark import format_duration
 from leaderboard_data import BlobLeaderboard, REFRESH_SECONDS, local_leaderboard, packaged_leaderboard
 
+SERVICE_NAME = '수능냥이'
 TITLE = '2027학년도 수능 풀이 모델 리더보드'
 SUBJECTS = {'korean': '국어', 'math': '수학'}
 SHORT_COURSES = {'화법과 작문': '화작', '언어와 매체': '언매'}
@@ -16,7 +17,7 @@ PROVIDERS = {'all': '전체', 'openai': 'OpenAI', 'anthropic': 'Anthropic',
              'gemini': 'Gemini', 'openrouter': 'OpenRouter', 'upstage': 'Upstage'}
 KST = timezone(timedelta(hours=9))
 
-st.set_page_config(page_title=TITLE, layout='wide')
+st.set_page_config(page_title=f'{SERVICE_NAME} · {TITLE}', layout='wide')
 st.html('''
 <style>
 .stApp { background: #f6f7f9; color: #161d26; }
@@ -27,6 +28,7 @@ st.html('''
 .exam-header h1 { font-size: clamp(1.5rem, 3vw, 2.2rem); line-height: 1.3; letter-spacing: -0.035em;
                   color: #f8fafc; margin: 0; padding: 0; overflow-wrap: anywhere; }
 .exam-header p { color: #d1d8e3; margin: .65rem 0 0; font-size: .94rem; }
+.exam-header .exam-service-name { color: #ffbd61; margin: 0 0 .5rem; font-size: 1rem; font-weight: 750; }
 .st-key-subject [role="radiogroup"] { gap: .45rem; }
 .st-key-subject label { background: #fff; padding: .45rem .8rem; border: 1px solid #b6bec9;
                         border-radius: 8px; min-width: 76px; color: #161d26; }
@@ -167,7 +169,7 @@ rel="noopener noreferrer" aria-label="LinkedIn">
 </script>
 ''', unsafe_allow_javascript=True)
 
-st.html(f'''<header class="exam-header"><h1>{TITLE}</h1>
+st.html(f'''<header class="exam-header"><p class="exam-service-name">{SERVICE_NAME}</p><h1>{TITLE}</h1>
 <p>선택과목별 원점수 평균으로 순위를 매깁니다. 동점이면 소요시간이 짧은 모델이 앞섭니다.</p></header>''')
 
 

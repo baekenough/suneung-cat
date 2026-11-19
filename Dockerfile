@@ -12,6 +12,7 @@ import streamlit
 # The deployed theme uses system fonts. Remove Streamlit's default startup font.
 index = Path(streamlit.__file__).parent / 'static' / 'index.html'
 html = index.read_text(encoding='utf-8')
+html = html.replace('<title>Streamlit</title>', '<title>수능냥이 · 2027학년도 수능 풀이 모델 리더보드</title>')
 source_sans_preload = r'<link\s+rel="preload"\s+href="\./static/media/SourceSansVF-Upright\.[^"]+\.woff2"[^>]*>'
 html = re.sub(source_sans_preload, '', html)
 for href in re.findall(r'href="(\./static/css/index\.[^"]+\.css)"', html):
