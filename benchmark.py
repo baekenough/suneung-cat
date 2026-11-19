@@ -14,6 +14,7 @@ import re
 from http.client import HTTPException
 import statistics
 import sys
+from threading import Lock
 import time
 from datetime import datetime, timezone
 from pathlib import Path
@@ -29,6 +30,10 @@ ROOT = Path(__file__).resolve().parent
 DEFAULT_MODEL = 'solar-mini-4-5-preview'
 UPSTAGE = 'https://api.upstage.ai/v1/chat/completions'
 OPENROUTER = 'https://openrouter.ai/api/v1/chat/completions'
+OPENROUTER_FREE_REQUEST_SECONDS = 3.1  # Leave a small margin below 20 requests per minute.
+free_request_lock = Lock()
+next_free_request_at = 0.0
+anthropic_usage_error = None
 SYSTEM = ('당신은 수능 국어 시험에 응시합니다. 제공된 지문과 문제를 읽고 해당 문항 하나만 푸세요. '
           '자료는 원문의 글과 그림을 텍스트로 옮긴 것입니다. '
           '정답으로 고른 선택지의 번호 하나를 JSON의 answer 값(정수 1~5)으로 반환하세요.')
@@ -101,11 +106,20 @@ def parse_choice(content, lower=1, upper=5):
         single = re.fullmatch(r'(?:(?:정답|answer)\s*[:：]\s*)?([0-9]+|[①②③④⑤])\s*(?:번)?[.]?', text,
                               re.IGNORECASE)
         if not single:
+            single = re.search(r'(?:^|\n)[ \t]*(?:정답|final answer|answer)\s*[:：]\s*'
+                               r'([0-9]+|[①②③④⑤])\s*(?:번)?[.]?\s*\Z', text, re.IGNORECASE)
+        if not single:
             raise
-        parsed = '①②③④⑤'.index(single[1]) + 1 if single[1] in '①②③④⑤' else int(single[1])
+        parsed = single[1]
     if isinstance(parsed, list) and len(parsed) == 1:
         parsed = parsed[0]
     answer = parsed.get('answer') if isinstance(parsed, dict) else parsed
+    if isinstance(answer, str):
+        answer = answer.strip()
+        if re.fullmatch(r'[0-9]+', answer):
+            answer = int(answer)
+        elif len(answer) == 1 and answer in '①②③④⑤':
+            answer = '①②③④⑤'.index(answer) + 1
     if type(answer) is not int or not lower <= answer <= upper:
         raise ValueError(f'답안이 {lower}~{upper}의 정수가 아닙니다.')
     return answer
@@ -153,11 +167,24 @@ def read_response(response, deadline):
         body.extend(chunk)
 
 
+def pace_free_request():
+    global next_free_request_at
+    with free_request_lock:
+        time.sleep(max(0, next_free_request_at - time.monotonic()))
+        next_free_request_at = time.monotonic() + OPENROUTER_FREE_REQUEST_SECONDS
+
+
 def solve(key, model, settings, question, previous, recover_effort=None, output=None, workspace_id=None):
+    global anthropic_usage_error
     endpoint = model_endpoint(model)
+    if endpoint == ANTHROPIC and anthropic_usage_error:
+        return {'error': anthropic_usage_error, 'attempts': []}
     native = endpoint in (OPENAI, ANTHROPIC)
-    exhausted = previous.get('error') == '재시도 후에도 출력 토큰 한도 도달'
-    recovery = (recover_effort if previous else None) or ('low' if exhausted else None)
+    previous_error = previous.get('error', '')
+    keep_reasoning = any('Reasoning is mandatory' in message for message in
+                         (previous_error, *(attempt.get('error', '') for attempt in previous.get('attempts', ()))))
+    retry_with_low = keep_reasoning or previous_error in ('재시도 후에도 출력 토큰 한도 도달', 'TimeoutError')
+    recovery = (recover_effort if previous else None) or ('low' if retry_with_low else None)
     effort = recovery or settings['reasoning_effort']
     if native and effort == 'none':
         effort = 'low'
@@ -170,7 +197,8 @@ def solve(key, model, settings, question, previous, recover_effort=None, output=
     else:
         payload['reasoning_effort'] = effort
     if endpoint == OPENROUTER:
-        payload['provider'] = {'require_parameters': True, 'sort': 'throughput'}
+        payload['provider'] = {'require_parameters': True,
+                               'sort': 'latency' if recovery and not keep_reasoning else 'throughput'}
         if model.startswith('qwen/qwen3.') and 'finish_reason=stop' in previous.get('error', ''):
             payload['provider'].pop('sort')
             failed_providers = {attempt['provider'].casefold() for attempt in previous.get('attempts', ())
@@ -181,6 +209,8 @@ def solve(key, model, settings, question, previous, recover_effort=None, output=
                 payload['provider']['ignore'] = sorted(failed_providers)
     attempts = []
     for attempt in range(4):
+        if endpoint == OPENROUTER and model.endswith(':free'):
+            pace_free_request()
         request = native_request(endpoint, key, payload, workspace_id) if native else Request(
             endpoint, json.dumps(payload, ensure_ascii=False).encode('utf-8'), headers={
             'Authorization': 'Bearer ' + key, 'Content-Type': 'application/json'})
@@ -193,7 +223,7 @@ def solve(key, model, settings, question, previous, recover_effort=None, output=
         provider = None
         content = None
         try:
-            timeout = 60 if recovery else 210
+            timeout = 120 if keep_reasoning else 60 if recovery else 210
             with urlopen(request, timeout=timeout) as response:
                 data = read_response(response, started + timeout)
             if native:
@@ -207,7 +237,7 @@ def solve(key, model, settings, question, previous, recover_effort=None, output=
                 attempts.append({'error': '출력 토큰 한도 도달', 'finish_reason': finish,
                                  'max_tokens': payload['max_tokens'], 'request_id': request_id,
                                  'usage': usage, 'seconds': round(time.monotonic() - started, 3)})
-                if recovery and not native and effort != 'none':
+                if recovery and not native and not keep_reasoning and effort != 'none':
                     effort = 'none'
                     if endpoint == OPENROUTER:
                         payload['reasoning']['effort'] = effort
@@ -235,6 +265,8 @@ def solve(key, model, settings, question, previous, recover_effort=None, output=
                 message += ' ' + str(detail).replace(key, '[redacted]')[:240]
             except (ValueError, AttributeError):
                 pass
+            if endpoint == ANTHROPIC and exc.code == 400 and 'reached your specified API usage limits' in message:
+                anthropic_usage_error = message
             transient = exc.code in (408, 429, 500, 502, 503, 504, 529)
             if endpoint == OPENROUTER and exc.code == 404 and 'All providers have been ignored' in message:
                 transient = bool(payload['provider'].pop('ignore', None))
@@ -244,7 +276,7 @@ def solve(key, model, settings, question, previous, recover_effort=None, output=
                 pass
         except (URLError, TimeoutError, socket.timeout, ConnectionError, HTTPException) as exc:
             message, transient = type(exc).__name__, True
-            if recovery and not native and effort != 'none':
+            if recovery and not native and not keep_reasoning and effort != 'none':
                 effort = 'none'
                 if endpoint == OPENROUTER:
                     payload['reasoning']['effort'] = effort
