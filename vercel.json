@@ -1,6 +1,12 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": null,
+  "buildCommand": "python3 build_site.py",
+  "outputDirectory": "web-dist",
   "regions": ["icn1"],
+  "functions": {
+    "api/leaderboard.js": {"maxDuration": 10}
+  },
   "headers": [
     {
       "source": "/",

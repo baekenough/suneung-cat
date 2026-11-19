@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>수능냥이 · 2027학년도 수능 풀이 모델 리더보드</title>
+  <meta name="description" content="AI 모델의 2027학년도 수능 국어·수학·영어·한국사·탐구 점수와 소요시간을 비교합니다.">
+  <meta property="og:type" content="website">
+  <meta property="og:locale" content="ko_KR">
+  <meta property="og:site_name" content="수능냥이">
+  <meta property="og:title" content="수능냥이 · 2027학년도 수능 풀이 모델 리더보드">
+  <meta property="og:description" content="AI 모델의 2027학년도 수능 점수와 소요시간을 비교합니다.">
+  <meta property="og:url" content="https://suneung-cat.vercel.app/">
+  <meta property="og:image" content="https://suneung-cat.vercel.app/app/static/suneung-cat-og.jpg">
+  <meta property="og:image:type" content="image/jpeg">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:image:alt" content="수능냥이 제목과 수능 답안지 앞에 앉은 고양이">
+  <meta name="twitter:card" content="summary_large_image">
+  <link rel="stylesheet" href="/leaderboard.css">
+  <script type="module" src="/leaderboard.js"></script>
+</head>
+<body class="exam-page">
+  <main class="exam-main">
+    <aside class="exam-byline" aria-label="자료 출처 및 제작자">
+      <p><strong>baekenough</strong>가 <a href="https://cdn.kice.re.kr/27dae-suneung/index.html" target="_blank"
+         rel="noopener noreferrer">한국교육과정평가원 2027학년도 수능 자료</a>에서 받음</p>
+      <nav aria-label="제작자 연락처">
+        <button id="exam-share" type="button" aria-label="URL 공유하기" title="URL 공유하기"><img alt="" src="/icons/share.svg"></button>
+        <a href="https://www.linkedin.com/in/%EC%83%81%EC%9D%B4-%EB%B0%B1-a8b028203/" target="_blank"
+           rel="noopener noreferrer" aria-label="LinkedIn"><img alt="" src="/icons/linkedin.svg"></a>
+        <a href="mailto:baekenough@gmail.com" aria-label="Gmail" title="baekenough@gmail.com"><img alt="" src="/icons/gmail.svg"></a>
+        <a href="https://github.com/baekenough" target="_blank"
+           rel="noopener noreferrer" aria-label="GitHub"><img alt="" src="/icons/github.svg"></a>
+        <span class="exam-share-status" role="status"></span>
+      </nav>
+    </aside>
+    <header class="exam-header">
+      <p class="exam-service-name">수능냥이</p>
+      <h1>2027학년도 수능 풀이 모델 리더보드</h1>
+      <p>선택과목별 원점수 평균으로 순위를 매깁니다. 동점이면 소요시간이 짧은 모델이 앞섭니다.</p>
+    </header>
+    <div class="exam-controls">
+      <div class="exam-subjects" role="group" aria-label="과목"></div>
+      <label class="exam-course" hidden>탐구 선택과목 <select id="exam-course"></select></label>
+      <div class="exam-providers" role="group" aria-label="제공사"></div>
+      <label class="exam-frontier"><input type="checkbox" id="hide-frontier"> 프론티어 모델 숨기기</label>
+    </div>
+    <div id="exam-content"><p class="exam-message" role="status">리더보드를 불러오는 중입니다.</p></div>
+    <noscript><p class="exam-message">리더보드를 보려면 JavaScript를 켜주세요.</p></noscript>
+  </main>
+</body>
+</html>

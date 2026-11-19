@@ -1,0 +1,117 @@
+body, .stApp { background: #f6f7f9; color: #161d26; }
+.exam-page { margin: 0; font: 1rem/1.5 system-ui, sans-serif; }
+.exam-page * { box-sizing: border-box; }
+.exam-page [hidden] { display: none !important; }
+.exam-page button, .exam-page select { font: inherit; }
+.exam-page button { cursor: pointer; }
+.exam-main { margin-inline: auto; }
+.exam-main > * + * { margin-block-start: 1rem; }
+.exam-controls, .exam-course { display: grid; gap: .55rem; }
+.exam-subjects, .exam-providers { display: flex; flex-wrap: wrap; gap: .45rem; }
+.exam-providers button { padding: .35rem .75rem; border: 1px solid; border-radius: 8px; }
+.exam-course { max-width: 23rem; color: #26384d; font-size: .87rem; }
+.exam-course select { min-height: 40px; border: 1px solid #cdd9e7; border-radius: 8px;
+                      color: #263d56; background: #fff; padding: .35rem .65rem; }
+.exam-frontier { display: inline-flex; align-items: center; gap: .4rem; width: fit-content; cursor: pointer; }
+.exam-frontier input { accent-color: #0972d3; width: 1rem; height: 1rem; }
+.exam-message { padding: .8rem 1rem; background: #eaf5ff; color: #174a78; border-radius: 8px; }
+.exam-analysis { margin-top: 1rem; padding: .7rem 1rem; border: 1px solid #d9e1eb;
+                 border-radius: 8px; background: #fff; }
+.exam-analysis summary { cursor: pointer; font-weight: 650; }
+.exam-analysis li { margin-block: .25rem; overflow-wrap: anywhere; }
+[data-testid="stHeader"] { display: none; }
+.exam-main, .stMainBlockContainer { max-width: 1360px; padding: 2.5rem 2rem 2rem; }
+.exam-header, .exam-board { border-radius: 12px; }
+.exam-header { padding: 30px 32px; background: #182536; color: #f8fafc; border-top: 4px solid #ff9900; }
+.exam-header h1 { font-size: clamp(1.5rem, 3vw, 2.2rem); line-height: 1.3; letter-spacing: -0.035em;
+                  color: #f8fafc; margin: 0; padding: 0; overflow-wrap: anywhere; }
+.exam-header p { color: #d1d8e3; margin: .65rem 0 0; font-size: .94rem; }
+.exam-header .exam-service-name { color: #ffbd61; margin: 0 0 .5rem; font-size: 1rem; font-weight: 750; }
+:is(.exam-subjects, .st-key-subject) button { min-height: 40px; padding: .4rem .85rem; background: #fff; color: #263d56;
+                         border: 1px solid #cdd9e7; border-radius: 8px; font-weight: 650; }
+:is(.exam-subjects, .st-key-subject) button:hover { border-color: #82b4e1; background: #f2f8fe; }
+:is(.exam-subjects, .st-key-subject) button[aria-checked="true"], :is(.exam-subjects, .st-key-subject) button[aria-pressed="true"] {
+    background: #e3f1ff; border-color: #096ec5; color: #074a87; }
+:is(.exam-subjects, .st-key-subject) button:focus-visible { outline: 2px solid #0972d3; outline-offset: 2px; }
+:is(.exam-providers, .st-key-provider) button { background: #fff; color: #20364d; border-color: #c4ccd7; font-size: .84rem; }
+:is(.exam-providers, .st-key-provider) button[aria-checked="true"], :is(.exam-providers, .st-key-provider) button[aria-pressed="true"] {
+    background: #eaf5ff; color: #064a88; border-color: #0972d3; }
+.exam-board { width: 100%; border: 1px solid #d9e1eb; background: #fff; overflow: hidden;
+              box-shadow: 0 5px 20px #172b4510; }
+.exam-board__header { padding: 20px 23px; display: flex; flex-wrap: wrap; gap: 8px 16px;
+                      justify-content: space-between; align-items: baseline; }
+.exam-board__header h2 { font-size: 1.24rem; margin: 0; padding: 0; color: #162940; letter-spacing: -.025em; }
+.exam-board__status { color: #52647a; font-size: .78rem; font-variant-numeric: tabular-nums; }
+.exam-board__table { overflow-x: auto; }
+.exam-board table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+.exam-board th, .exam-board td { padding: 12px 15px; border-block-start: 1px solid #e9eef4; text-align: right; }
+.exam-board th { background: #f0f4f9; color: #425773; font-size: .76rem;
+                 word-break: keep-all; overflow-wrap: anywhere; }
+.exam-board td { color: #26384d; font-size: .88rem; }
+.exam-board tbody tr:nth-child(2n) { background: #fafcfe; }
+.exam-board tbody tr:hover { background: #eef6ff; }
+.exam-board .name { text-align: left; font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+                   overflow-wrap: anywhere; font-weight: 650; color: #13253a; }
+.exam-board td.name { padding-inline-end: 12px; }
+.exam-board[data-cases="6"] :is(th, td):not(.name) { padding-inline: 8px; }
+.exam-board .rank { text-align: center; }
+.exam-board .rank strong { display: inline-grid; place-items: center; min-width: 1.8rem; min-height: 1.8rem;
+                           border-radius: 7px; background: #edf2f8; color: #364d67; }
+.exam-board .rank .first { color: #814800; background: #ffefd1; }
+.exam-board .score { font-size: 1.02rem; font-weight: 770; color: #07559e; white-space: nowrap; }
+.exam-board :is(th, td).elapsed { color: #425773; text-align: left; white-space: nowrap; }
+.exam-board .case { color: #52647a; }
+.exam-board .route { display: table; color: #465c74; background: #eef3f8; border-radius: 5px;
+                     font: 550 .68rem system-ui, sans-serif; padding: 2px 6px; margin-top: 4px; }
+.exam-board .route:empty { display: none; }
+.exam-note { color: #536678; font-size: .82rem; margin: .75rem 0 0; }
+.exam-byline { color: #46566b;
+               display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center;
+               font-size: .84rem; gap: 8px 16px; }
+.exam-byline p { margin: 0; }
+.exam-byline nav { position: relative; display: flex; flex-wrap: wrap; align-items: center; gap: 7px; }
+.exam-byline nav :is(a, button) { display: inline-flex; align-items: center; justify-content: center;
+                                 width: 42px; height: 42px; border: 1px solid #d5dae1; border-radius: 8px;
+                                 background: #fff; color: #182536; text-decoration: none; }
+.exam-byline button { cursor: pointer; padding: 0; }
+.exam-byline nav :is(a, button):hover { background: #eaf5ff; border-color: #87b6e3; }
+.exam-byline :is(a, button):focus-visible { outline: 2px solid #0972d3; outline-offset: 2px; }
+.exam-byline img { width: 20px; height: 20px; flex-shrink: 0; }
+.exam-share-status { position: absolute; z-index: 1; inset-inline-end: 0; top: calc(100% + 5px);
+                     white-space: nowrap; pointer-events: none; }
+.exam-share-status:not(:empty) { padding: 4px 9px; border-radius: 5px; background: #182536; color: #fff; }
+@media (min-width: 811px) {
+    .exam-board { --model-width: clamp(194px, 25vw, 230px); }
+    .exam-board table { table-layout: fixed; }
+    .exam-board col.rank { width: 64px; }
+    .exam-board col.name { width: var(--model-width); }
+    .exam-board col.score { width: 96px; }
+    .exam-board col.elapsed { width: 108px; }
+    .exam-board[data-cases="0"] col.elapsed { width: auto; }
+}
+@media (max-width: 810px) {
+    .exam-main, .stMainBlockContainer { padding: 1.25rem .85rem; }
+    .exam-header { padding: 19px 18px; }
+    .exam-board__header { padding: 13px 1px; }
+    .exam-board { border: 0; background: transparent; box-shadow: none; }
+    .exam-board__table { overflow: visible; }
+    .exam-board table, .exam-board tbody { display: block; min-width: 0; }
+    .exam-board colgroup { display: none; }
+    .exam-board thead { position: absolute; width: 1px; height: 1px; overflow: hidden;
+                       clip-path: inset(50%); white-space: nowrap; }
+    .exam-board tbody tr { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); column-gap: 12px;
+                          background: #fff; border: 1px solid #dce4ee; border-radius: 12px;
+                          padding: 12px 14px; margin-bottom: 10px; }
+    .exam-board tbody tr:nth-child(2n), .exam-board tbody tr:hover { background: #fff; }
+    .exam-board td { text-align: left; padding: 7px 0; border: 0; grid-column: span 2; }
+    .exam-board td::before { display: block; content: attr(data-label); color: #536678; font-size: .7rem;
+                             white-space: nowrap; font-weight: 400; margin-bottom: 2px; }
+    .exam-board .rank { grid-column: 1; text-align: left; }
+    .exam-board .name { grid-column: 2 / -1; }
+    .exam-board td.name { padding-inline-end: 0; }
+    .exam-board[data-cases="6"] td:not(.name) { padding-inline: 0; }
+    .exam-board :is(.score, .elapsed) { grid-column: span 3; }
+    .exam-board .case { border-block-start: 1px solid #e9eef4; grid-column: span 3; }
+    .exam-board[data-cases="6"] .case { grid-column: span 2; }
+    .exam-board .rank::before, .exam-board .name::before { content: none; }
+}
