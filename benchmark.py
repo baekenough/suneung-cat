@@ -236,6 +236,8 @@ def solve(key, model, settings, question, previous, recover_effort=None, output=
             except (ValueError, AttributeError):
                 pass
             transient = exc.code in (408, 429, 500, 502, 503, 504, 529)
+            if endpoint == OPENROUTER and exc.code == 404 and 'All providers have been ignored' in message:
+                transient = bool(payload['provider'].pop('ignore', None))
             try:
                 retry_after = min(60, float(exc.headers.get('Retry-After', '0')))
             except ValueError:
