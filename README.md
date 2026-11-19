@@ -74,6 +74,8 @@ Vercel 프로젝트에는 Blob의 `leaderboard.json` 주소를 `CSAT_LEADERBOARD
 
 한국사와 모든 탐구 과목은 OpenAI Astra·Sol·Terra와 Anthropic Fable·Opus·Sonnet을 공통으로 평가합니다. 영어는 문제 이미지와 공식 듣기 음원을 함께 처리할 수 있는 모델로 평가합니다.
 
+4교시는 공식 자료 준비와 모델 평가를 병렬로 진행합니다. 준비가 끝난 과목부터 평가하고, 결과가 저장되면 리더보드에 반영합니다.
+
 채점이 끝나면 모델 점수 분포, 최단 소요시간, 오답이 많은 문항과 영어 듣기·읽기 득점률을 `analysis.json`에 기록합니다. 리더보드의 `채점 분석`에서도 볼 수 있습니다.
 
 ```bash
