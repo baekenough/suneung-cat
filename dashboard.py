@@ -14,6 +14,7 @@ st.set_page_config(page_title=TITLE, layout='wide')
 st.html('''
 <style>
 .stApp { background: #f6f7f9; color: #161d26; }
+[data-testid="stHeader"] { display: none; }
 .stMainBlockContainer { max-width: 1360px; padding: 2.5rem 2rem 2rem; }
 .exam-header, .exam-board { border-radius: 12px; }
 .exam-header { padding: 30px 32px; background: #182536; color: #f8fafc; border-top: 4px solid #ff9900; }
@@ -24,6 +25,7 @@ st.html('''
 .st-key-subject label { background: #fff; padding: .45rem .8rem; border: 1px solid #b6bec9;
                         border-radius: 8px; min-width: 76px; color: #161d26; }
 .st-key-subject label:has(input:checked) { background: #eaf5ff; border-color: #0972d3; color: #033160; }
+.st-key-subject label:has(input:checked) > div:first-child { background-color: #0972d3; border-color: #0972d3; }
 .st-key-subject label:focus-within { outline: 2px solid #0972d3; outline-offset: 2px; }
 .exam-board { border: 1px solid #d5dae1; background: #fff; overflow: hidden; }
 .exam-board__header { padding: 16px 20px; display: flex; flex-wrap: wrap; gap: 8px 16px;
