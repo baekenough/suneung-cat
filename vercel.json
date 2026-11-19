@@ -1,4 +1,19 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "regions": ["icn1"]
+  "regions": ["icn1"],
+  "headers": [
+    {
+      "source": "/",
+      "headers": [
+        {"key": "Vercel-CDN-Cache-Control", "value": "public, s-maxage=300"}
+      ]
+    },
+    {
+      "source": "/app/static/suneung-cat-og.jpg",
+      "headers": [
+        {"key": "Cache-Control", "value": "public, max-age=3600"},
+        {"key": "Vercel-CDN-Cache-Control", "value": "public, s-maxage=86400"}
+      ]
+    }
+  ]
 }

@@ -17,6 +17,8 @@ PROVIDERS = {'all': '전체', 'openai': 'OpenAI', 'anthropic': 'Anthropic',
              'gemini': 'Gemini', 'openrouter': 'OpenRouter', 'upstage': 'Upstage'}
 FRONTIER_MODELS = {'gpt-6.2-astra', 'gpt-6.2-sol', 'claude-fable-5-2', 'claude-opus-5-5',
                    'google/gemini-4-neon', 'google/gemini-4-hydrogen', 'google/gemini-4-carbon'}
+CLOUD_LEADERBOARD_URL = os.environ.get('CSAT_LEADERBOARD_URL')
+VIEW_REFRESH_SECONDS = 10 if CLOUD_LEADERBOARD_URL else REFRESH_SECONDS
 
 st.set_page_config(page_title=f'{SERVICE_NAME} · {TITLE}', layout='wide')
 st.html('''
@@ -261,13 +263,12 @@ def provider_group(model):
 
 @st.cache_resource
 def cloud_scores():
-    return BlobLeaderboard(os.environ['CSAT_LEADERBOARD_URL'], os.environ['BLOB_READ_WRITE_TOKEN'])
+    return BlobLeaderboard(CLOUD_LEADERBOARD_URL, os.environ['BLOB_READ_WRITE_TOKEN'], VIEW_REFRESH_SECONDS)
 
 
 def board_data(subject_key):
     try:
-        snapshot = (cloud_scores().read() if os.environ.get('CSAT_LEADERBOARD_URL')
-                    else packaged_leaderboard())
+        snapshot = cloud_scores().read() if CLOUD_LEADERBOARD_URL else packaged_leaderboard()
     except (URLError, ValueError, KeyError, TimeoutError):
         return False
     return snapshot.get(subject_key) if snapshot is not None else local_leaderboard(subject_key)
@@ -340,14 +341,14 @@ def leaderboard(data, subject_key, selected_provider, hide_frontier):
 <thead><tr><th class="rank" scope="col">순위</th><th class="name" scope="col">모델</th>
 <th scope="col">평균 / {data.get('max_score', 100)}</th><th class="elapsed" scope="col">소요시간</th>{headings}</tr></thead>
 <tbody>{''.join(rows)}</tbody></table></div></section>
-<p class="exam-note">2초마다 갱신합니다. 소요시간은 첫 요청부터 마지막 채점 응답까지입니다.</p>''')
+<p class="exam-note">{VIEW_REFRESH_SECONDS}초마다 갱신합니다. 소요시간은 첫 요청부터 마지막 채점 응답까지입니다.</p>''')
     includes_hidden_models = hide_frontier and any(row['model'] in FRONTIER_MODELS for row in data['models'])
     if not includes_hidden_models and (analysis := data.get('analysis')):
         with st.expander('채점 분석'):
             st.markdown('\n'.join(f'- {line}' for line in analysis_markdown(analysis)))
 
 
-@st.fragment(run_every=REFRESH_SECONDS)
+@st.fragment(run_every=VIEW_REFRESH_SECONDS)
 def watch_board(subject_key, displayed_data):
     if board_data(subject_key) != displayed_data:
         st.rerun()

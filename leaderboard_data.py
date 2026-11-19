@@ -66,7 +66,7 @@ def packaged_leaderboard():
 class BlobLeaderboard:
     """Share one revalidation across viewer sessions and keep the last good data."""
 
-    def __init__(self, url, token):
+    def __init__(self, url, token, refresh_seconds=REFRESH_SECONDS):
         location = urlsplit(url)
         if location.scheme != 'https' or not (location.hostname or '').endswith('.private.blob.vercel-storage.com'):
             raise ValueError('CSAT_LEADERBOARD_URL은 Vercel 비공개 Blob HTTPS 주소여야 합니다.')
@@ -74,6 +74,7 @@ class BlobLeaderboard:
         query['cache'] = '0'
         self.url = location._replace(query=urlencode(query)).geturl()
         self.token = token
+        self.recheck_seconds = refresh_seconds * 0.75
         self.lock = Lock()
         self.next_check = 0
         self.etag = None
@@ -97,7 +98,7 @@ class BlobLeaderboard:
                 if self.data is None:
                     raise
             # Share concurrent reads without skipping the next scheduled poll.
-            self.next_check = started + REFRESH_SECONDS * 0.75
+            self.next_check = started + self.recheck_seconds
             return self.data
 
 
