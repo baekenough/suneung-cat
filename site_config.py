@@ -7,5 +7,5 @@ PROVIDERS = {'all': '전체', 'openai': 'OpenAI', 'anthropic': 'Anthropic',
              'gemini': 'Gemini', 'openrouter': 'OpenRouter', 'upstage': 'Upstage'}
 PROVIDER_HOSTS = {'api.openai.com': 'openai', 'api.anthropic.com': 'anthropic',
                   'openrouter.ai': 'openrouter', 'api.upstage.ai': 'upstage'}
-FRONTIER_MODELS = {'gpt-6.2-astra', 'gpt-6.2-sol', 'claude-fable-5-2', 'claude-opus-5-5',
+FRONTIER_MODELS = {'gpt-6.2-astra', 'gpt-6.2-sol', 'gpt-6.1-terra', 'claude-fable-5-2', 'claude-opus-5-5',
                    'google/gemini-4-neon', 'google/gemini-4-hydrogen', 'google/gemini-4-carbon'}
