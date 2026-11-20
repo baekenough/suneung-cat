@@ -1,4 +1,5 @@
 const {createHash} = require('node:crypto');
+const subjectPattern = /^(korean|math|english|history|social-0[1-9]|science-0[1-8]|vocational-0[1-6])$/;
 
 let snapshot;
 let recheckAt = 0;
@@ -27,19 +28,29 @@ async function readSnapshot() {
   return refresh;
 }
 
+function overview(data) {
+  return Object.fromEntries(Object.entries(data).filter(([key, board]) => subjectPattern.test(key) && board)
+    .map(([key, board]) => [key, {
+      max_score: board.max_score,
+      updated_at: board.updated_at,
+      models: board.models.map(({model, endpoint, rank, mean_score, elapsed_seconds}) =>
+        ({model, endpoint, rank, mean_score, elapsed_seconds})),
+    }]));
+}
+
 module.exports = async (req, res) => {
   if (req.method !== 'GET' && req.method !== 'HEAD') {
     res.setHeader('Allow', 'GET, HEAD');
     return res.status(405).end();
   }
   const subject = new URL(req.url, 'http://localhost').searchParams.get('subject');
-  if (!/^(korean|math|english|history|social-0[1-9]|science-0[1-8]|vocational-0[1-6])$/.test(subject ?? '')) {
+  if (subject !== 'overview' && !subjectPattern.test(subject ?? '')) {
     return res.status(400).json({error: 'Invalid subject'});
   }
 
   try {
     const data = await readSnapshot();
-    const body = JSON.stringify(data[subject] ?? null);
+    const body = JSON.stringify(subject === 'overview' ? overview(data) : data[subject] ?? null);
     const etag = `"${createHash('sha256').update(body).digest('hex')}"`;
     res.setHeader('ETag', etag);
     res.setHeader('Cache-Control', 'public, max-age=0, must-revalidate');
