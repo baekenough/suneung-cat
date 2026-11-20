@@ -100,6 +100,9 @@ def parse_choice(content, lower=1, upper=5):
     fence = re.fullmatch(r'```(?:json)?\s*(.*?)\s*```', text, re.DOTALL | re.IGNORECASE)
     if fence:
         text = fence[1]
+    final_object = re.search(r'(?:^|\n)[ \t]*(\{[^\n{}]*\})[ \t]*(?:\n[ \t]*```)?\s*\Z', text)
+    if final_object:
+        text = final_object[1]
     try:
         parsed = json.loads(text)
     except json.JSONDecodeError:
@@ -190,6 +193,12 @@ def solve(key, model, settings, question, previous, recover_effort=None, output=
         effort = 'low'
     cap = 8192 if recovery else settings['max_tokens']
     messages, schema, answer_range = make_messages(question, output)
+    if recovery and answer_range == (1, 5) and previous_error.startswith('응답 검증 실패'):
+        content = messages[-1]['content']
+        if isinstance(content, list):
+            content.append({'type': 'text', 'text': '계산 결과와 일치하는 보기를 확인하세요. '
+                            'answer에는 보기의 값이 아니라 ①부터 ⑤까지의 표시 번호만 넣으세요. '
+                            '응답은 {"answer":번호} 형식으로 제출하세요.'})
     payload = {'model': model, 'temperature': settings['temperature'], 'max_tokens': cap,
                'response_format': schema, 'messages': messages}
     if endpoint != UPSTAGE:
