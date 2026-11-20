@@ -18,15 +18,18 @@ let shownDataset;
 function readLocation() {
   const params = new URLSearchParams(location.search);
   const subject = Object.hasOwn(pages, params.get('subject')) ? params.get('subject') : 'overview';
-  const choices = catalog.courses[subject] ?? {};
+  const ranking = subject === 'overview' && Object.hasOwn(catalog.groups, params.get('ranking'))
+    ? params.get('ranking') : undefined;
+  const choices = catalog.courses[ranking ?? subject] ?? {};
   const selectedCourse = Object.hasOwn(choices, params.get('course')) ? params.get('course') : Object.keys(choices)[0];
   const provider = Object.hasOwn(catalog.providers, params.get('provider')) ? params.get('provider') : 'all';
-  return {subject, course: selectedCourse, provider, hideFrontier: params.get('hide_frontier') === '1'};
+  return {subject, ranking, course: selectedCourse, provider, hideFrontier: params.get('hide_frontier') === '1'};
 }
 
-function selectionHref(subject, selectedCourse) {
+function selectionHref(subject, selectedCourse, ranking) {
   const params = new URLSearchParams();
   if (subject !== 'overview') params.set('subject', subject);
+  if (subject === 'overview' && ranking) params.set('ranking', ranking);
   if (selectedCourse) params.set('course', selectedCourse);
   if (state.provider !== 'all') params.set('provider', state.provider);
   if (state.hideFrontier) params.set('hide_frontier', '1');
@@ -48,7 +51,9 @@ function buttons(className, values, onPick) {
 }
 
 const subjectButtons = buttons('.exam-subjects', pages, subject => {
-  if (subject !== state.subject) update({subject, course: Object.keys(catalog.courses[subject] ?? {})[0]});
+  if (subject !== state.subject) {
+    update({subject, ranking: undefined, course: Object.keys(catalog.courses[subject] ?? {})[0]});
+  }
 });
 const providerButtons = buttons('.exam-providers', catalog.providers, provider => update({provider}));
 course.addEventListener('change', () => update({course: course.value}));
@@ -70,21 +75,21 @@ function syncControls() {
     course.parentElement.hidden = choices.length === 0;
     courseGroup = state.subject;
   }
-  if (state.course) course.value = state.course;
+  if (state.subject !== 'overview' && state.course) course.value = state.course;
   frontier.checked = state.hideFrontier;
 }
 
 function update(changes) {
   const previous = dataset();
   state = {...state, ...changes};
-  history.replaceState(null, '', selectionHref(state.subject, state.course));
+  history.replaceState(null, '', selectionHref(state.subject, state.course, state.ranking));
   syncControls();
   render();
   if (previous !== dataset()) refresh();
 }
 
 function dataset() {
-  return state.course || state.subject;
+  return state.subject === 'overview' ? 'overview' : state.course || state.subject;
 }
 
 function escape(value) {
@@ -158,16 +163,77 @@ function analysisDetails(analysis, expanded) {
 function overviewLink(key, group, board, completed, compact) {
   const winner = completed[0];
   const title = catalog.labels[key];
-  const href = selectionHref(group, key === group ? undefined : key);
+  const selectedCourse = key === group ? undefined : key;
+  const href = selectionHref('overview', selectedCourse, group);
   const count = winner ? completed.filter(model => model.rank === winner.rank).length : 0;
   const model = winner ? escape(winner.model) + (count > 1 ? ` 외 ${count - 1}개` : '') : '완료 결과 대기';
   const score = winner ? `<strong>${points(winner.mean_score)}</strong><small> / ${board.max_score}점</small>` : '–';
   const elapsed = winner && Number.isFinite(winner.elapsed_seconds) ? `<span>${points(winner.elapsed_seconds)}초</span>` : '';
-  return `<a class="overview-course${compact ? ' overview-course--compact' : ''}" href="${escape(href)}">
+  return `<a class="overview-course${compact ? ' overview-course--compact' : ''}" href="${escape(href)}"
+    data-ranking="${group}" data-course="${selectedCourse ?? ''}" aria-current="${state.ranking === group && state.course === selectedCourse}">
     <span class="overview-course-title">${escape(title)}</span>
     <span class="overview-model">${model}</span>
     <span class="overview-score">${score}${elapsed}</span></a>`;
 }
+
+function overviewGroupCard(group, ranked) {
+  const keys = Object.keys(catalog.courses[group]);
+  const published = keys.filter(key => ranked.get(key)?.length).length;
+  const href = selectionHref('overview', keys[0], group);
+  return `<a class="overview-course" href="${escape(href)}" data-ranking="${group}" aria-current="${state.ranking === group}">
+    <span class="overview-course-title">${escape(catalog.groups[group])}</span>
+    <span class="overview-model">세부 과목 순위</span>
+    <span class="overview-score"><strong>${published}</strong><small> / ${keys.length}과목 공개</small></span></a>`;
+}
+
+function overviewRanking(boards) {
+  const group = state.ranking;
+  if (!group) return '';
+  const subject = state.course ?? group;
+  const board = boards[subject];
+  const models = visibleModels(board?.models ?? []);
+  const choices = Object.entries(catalog.courses[group] ?? {});
+  const picker = choices.length ? `<label class="exam-course">탐구 세부 과목
+    <select id="overview-ranking-course">${choices.map(([key, name]) =>
+      `<option value="${key}"${key === subject ? ' selected' : ''}>${escape(name)}</option>`).join('')}</select></label>` : '';
+  const detail = escape(selectionHref(group, state.course));
+  const table = models.length ? `<table class="overview-rank-table" aria-label="${escape(catalog.labels[subject])} 모델별 순위">
+    <thead><tr><th scope="col">순위</th><th scope="col">모델</th>
+      <th scope="col">평균 / ${board.max_score}</th><th scope="col">소요시간</th></tr></thead>
+    <tbody>${models.map(model => `<tr><td>${model.rank ?? '–'}</td><td><code>${escape(model.model)}</code></td>
+      <td><strong>${points(model.mean_score)}</strong></td>
+      <td>${model.elapsed_seconds == null ? '–' : points(model.elapsed_seconds) + '초'}</td></tr>`).join('')}</tbody></table>`
+    : message('표시할 모델 순위가 없습니다.');
+  return `<section class="overview-ranking" aria-labelledby="overview-ranking-title">
+    <div class="overview-heading">
+      <h3 id="overview-ranking-title" tabindex="-1">${escape(catalog.labels[subject])} 모델 순위</h3>
+      <div class="overview-ranking-actions"><a href="${detail}">상세 순위 보기</a>
+        <button id="overview-ranking-close" type="button">접기</button></div>
+    </div>
+    ${picker}${table}
+  </section>`;
+}
+
+content.addEventListener('click', event => {
+  const link = event.target.closest('a[data-ranking]');
+  if (link && event.button === 0 && !event.metaKey && !event.ctrlKey && !event.altKey && !event.shiftKey) {
+    event.preventDefault();
+    const ranking = link.dataset.ranking;
+    const selectedCourse = link.dataset.course || (state.ranking === ranking ? state.course : undefined)
+      || Object.keys(catalog.courses[ranking] ?? {})[0];
+    update({ranking, course: selectedCourse});
+    byId('overview-ranking-title').focus();
+  }
+  if (event.target.closest('#overview-ranking-close')) {
+    const activeGroup = state.ranking;
+    update({ranking: undefined, course: undefined});
+    content.querySelector(`.overview-primary [data-ranking="${activeGroup}"]`)?.focus();
+  }
+});
+
+content.addEventListener('change', event => {
+  if (event.target.id === 'overview-ranking-course') update({course: event.target.value});
+});
 
 function overviewDashboard(boards) {
   const ranked = new Map();
@@ -195,7 +261,6 @@ function overviewDashboard(boards) {
     }
   }
 
-  const primary = Object.keys(catalog.groups).filter(key => !catalog.courses[key]);
   const highlights = [...wins].sort(([a, aWins], [b, bWins]) => bWins - aWins ||
       appearances.get(b) - appearances.get(a) || a.localeCompare(b)).slice(0, 5);
   const update = updated ? `<span class="exam-board__status">${clock.format(updated * 1000)} 갱신 · 10초마다 확인</span>` : '';
@@ -216,8 +281,10 @@ function overviewDashboard(boards) {
       <div><dt>채점 완료</dt><dd>${completedCount}<small> / ${registered}건</small></dd></div>
     </dl>
     <section class="overview-section" aria-labelledby="overview-leaders">
-      <div class="overview-heading"><h3 id="overview-leaders">과목별 1위</h3>${filterNote}</div>
-      <div class="overview-primary">${courses(primary)}</div>
+      <div class="overview-heading"><h3 id="overview-leaders">과목별 모델 순위</h3>${filterNote}</div>
+      <div class="overview-primary">${Object.keys(catalog.groups).map(group => catalog.courses[group]
+        ? overviewGroupCard(group, ranked) : courses([group])).join('')}</div>
+      ${overviewRanking(boards)}
       <div class="overview-inquiry">${Object.entries(catalog.courses).map(([group, keys]) =>
         `<section class="overview-group"><h4>${escape(catalog.groups[group])}</h4>
           ${courses(Object.keys(keys), group)}</section>`).join('')}</div>
@@ -238,9 +305,12 @@ function render() {
     return;
   }
   if (key === 'overview') {
-    const focused = content.contains(document.activeElement) ? document.activeElement.getAttribute('href') : null;
+    const focused = content.contains(document.activeElement) ? document.activeElement : null;
+    const focusedLink = focused?.getAttribute('href');
     content.innerHTML = overviewDashboard(board);
-    if (focused) [...content.querySelectorAll('a')].find(link => link.getAttribute('href') === focused)?.focus({preventScroll: true});
+    const nextFocus = focused?.id ? byId(focused.id)
+      : [...content.querySelectorAll('a')].find(link => link.getAttribute('href') === focusedLink);
+    nextFocus?.focus({preventScroll: true});
     return;
   }
   if (!board) {
@@ -308,7 +378,7 @@ async function refresh() {
 
 let shareTimer;
 byId('exam-share').onclick = async () => {
-  const url = 'https://suneung-cat.vercel.app' + selectionHref(state.subject, state.course);
+  const url = 'https://suneung-cat.vercel.app' + selectionHref(state.subject, state.course, state.ranking);
   if (typeof navigator.share === 'function') {
     try {
       await navigator.share({title: document.title, url});
